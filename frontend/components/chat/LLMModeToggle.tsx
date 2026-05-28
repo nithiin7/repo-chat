@@ -12,7 +12,7 @@ interface LLMModeToggleProps {
 
 export default function LLMModeToggle({ mode, onChange, disabled }: LLMModeToggleProps) {
   return (
-    <div className="flex items-center rounded-lg border border-slate-700/60 bg-slate-900 p-0.5 gap-0.5">
+    <div className="flex items-center rounded-lg border border-border bg-card p-0.5 gap-0.5">
       <button
         type="button"
         onClick={() => onChange('local')}
@@ -21,7 +21,7 @@ export default function LLMModeToggle({ mode, onChange, disabled }: LLMModeToggl
           'flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-medium transition-all duration-150 disabled:pointer-events-none',
           mode === 'local'
             ? 'bg-emerald-500/15 text-emerald-400'
-            : 'text-slate-500 hover:text-slate-300',
+            : 'text-muted-foreground hover:text-foreground',
         )}
       >
         <Cpu className="size-3.5" />
@@ -35,7 +35,7 @@ export default function LLMModeToggle({ mode, onChange, disabled }: LLMModeToggl
           'flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-medium transition-all duration-150 disabled:pointer-events-none',
           mode === 'cloud'
             ? 'bg-indigo-500/15 text-indigo-400'
-            : 'text-slate-500 hover:text-slate-300',
+            : 'text-muted-foreground hover:text-foreground',
         )}
       >
         <Cloud className="size-3.5" />

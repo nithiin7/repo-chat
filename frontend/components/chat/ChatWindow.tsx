@@ -2,8 +2,9 @@
 
 import { useState, useRef, useEffect, useCallback } from 'react'
 import Link from 'next/link'
-import { ArrowLeft, GitFork, SendHorizontal, Square, Code2 } from 'lucide-react'
+import { ArrowLeft, GitFork, SendHorizontal, Square, Sparkles } from 'lucide-react'
 import { Button } from '@/components/ui/button'
+import { ThemeToggle } from '@/components/ui/theme-toggle'
 import LLMModeToggle from './LLMModeToggle'
 import MessageBubble from './MessageBubble'
 import { chatStream } from '@/lib/api'
@@ -80,7 +81,6 @@ export default function ChatWindow({ repo, repoId }: ChatWindowProps) {
 
       const cancel = chatStream(
         { repo_id: repoId, question: q, mode },
-        // onToken — append to the last assistant message
         (token) => {
           setMessages((prev) => {
             const last = prev[prev.length - 1]
@@ -88,7 +88,6 @@ export default function ChatWindow({ repo, repoId }: ChatWindowProps) {
             return [...prev.slice(0, -1), { ...last, content: last.content + token }]
           })
         },
-        // onSources — attach retrieved chunks to the current assistant message
         (sources) => {
           setMessages((prev) => {
             const last = prev[prev.length - 1]
@@ -96,7 +95,6 @@ export default function ChatWindow({ repo, repoId }: ChatWindowProps) {
             return [...prev.slice(0, -1), { ...last, sources }]
           })
         },
-        // onError
         () => {
           setMessages((prev) => {
             const last = prev[prev.length - 1]
@@ -114,7 +112,6 @@ export default function ChatWindow({ repo, repoId }: ChatWindowProps) {
           setStreaming(false)
           cancelRef.current = null
         },
-        // onDone
         () => {
           setMessages((prev) => {
             const last = prev[prev.length - 1]
@@ -150,51 +147,53 @@ export default function ChatWindow({ repo, repoId }: ChatWindowProps) {
   }
 
   return (
-    <div className="flex h-screen flex-col bg-slate-950 text-slate-200">
-      {/* ── Sticky header ─────────────────────────────── */}
-      <header className="sticky top-0 z-10 flex shrink-0 items-center justify-between gap-4 border-b border-slate-800/80 bg-slate-950/90 px-4 py-3 backdrop-blur-md">
+    <div className="flex h-screen flex-col bg-background text-foreground">
+      {/* ── Sticky header ── */}
+      <header className="sticky top-0 z-10 flex shrink-0 items-center justify-between gap-4 border-b border-border bg-background/90 px-4 py-3 backdrop-blur-md">
         <div className="flex min-w-0 items-center gap-2.5">
           <Link
             href="/"
             aria-label="Back to repositories"
-            className="flex size-8 shrink-0 items-center justify-center rounded-lg text-slate-400 transition-colors hover:bg-slate-800 hover:text-slate-100"
+            className="flex size-8 shrink-0 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
           >
             <ArrowLeft className="size-4" />
           </Link>
 
-          <div className="mx-1 h-5 w-px shrink-0 bg-slate-800" aria-hidden />
+          <div className="mx-1 h-5 w-px shrink-0 bg-border" aria-hidden />
 
-          <div className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-indigo-600/20 text-indigo-400">
+          <div className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-indigo-500/10 text-indigo-400">
             <GitFork className="size-3.5" />
           </div>
           <div className="min-w-0">
-            <p className="truncate text-sm font-semibold text-white">{displayName}</p>
+            <p className="truncate text-sm font-semibold text-foreground">{displayName}</p>
             {repo && (
-              <p className="truncate text-xs text-slate-500">
+              <p className="truncate text-xs text-muted-foreground">
                 {repo.file_count.toLocaleString()} files indexed
               </p>
             )}
           </div>
         </div>
 
-        <LLMModeToggle mode={mode} onChange={setMode} disabled={streaming} />
+        <div className="flex items-center gap-1.5">
+          <LLMModeToggle mode={mode} onChange={setMode} disabled={streaming} />
+          <ThemeToggle />
+        </div>
       </header>
 
-      {/* ── Message list ──────────────────────────────── */}
+      {/* ── Message list ── */}
       <div
         ref={scrollRef}
         onScroll={handleScroll}
         className="flex-1 overflow-y-auto"
       >
         {messages.length === 0 ? (
-          /* Empty state */
           <div className="flex h-full flex-col items-center justify-center gap-6 px-4 pb-16 pt-8 text-center">
-            <div className="flex size-16 items-center justify-center rounded-2xl border border-slate-800 bg-slate-900/60 text-slate-600">
-              <Code2 className="size-7" />
+            <div className="flex size-14 items-center justify-center rounded-2xl border border-border bg-card text-indigo-400">
+              <Sparkles className="size-6" />
             </div>
             <div>
-              <p className="font-semibold text-slate-300">Ask anything about this codebase</p>
-              <p className="mt-1 text-sm text-slate-600">
+              <p className="font-semibold text-foreground">Ask anything about this codebase</p>
+              <p className="mt-1 text-sm text-muted-foreground">
                 {repo
                   ? `${repo.file_count.toLocaleString()} files indexed · ${mode === 'local' ? 'local LLM' : 'cloud LLM'}`
                   : 'Repository is indexed and ready'}
@@ -205,7 +204,7 @@ export default function ChatWindow({ repo, repoId }: ChatWindowProps) {
                 <button
                   key={s}
                   onClick={() => submit(s)}
-                  className="rounded-xl border border-slate-800 bg-slate-900/50 px-4 py-3 text-left text-sm text-slate-400 transition-all hover:border-indigo-500/40 hover:bg-slate-800/60 hover:text-slate-200"
+                  className="rounded-xl border border-border bg-card/60 px-4 py-3 text-left text-sm text-muted-foreground transition-all hover:border-indigo-500/30 hover:bg-card hover:text-foreground"
                 >
                   {s}
                 </button>
@@ -222,8 +221,8 @@ export default function ChatWindow({ repo, repoId }: ChatWindowProps) {
         <div ref={bottomRef} className="h-4" />
       </div>
 
-      {/* ── Input bar ─────────────────────────────────── */}
-      <div className="shrink-0 border-t border-slate-800/80 bg-slate-950/90 px-4 py-4 backdrop-blur-md">
+      {/* ── Input bar ── */}
+      <div className="shrink-0 border-t border-border bg-background/90 px-4 py-4 backdrop-blur-md">
         <form
           onSubmit={(e) => {
             e.preventDefault()
@@ -233,10 +232,10 @@ export default function ChatWindow({ repo, repoId }: ChatWindowProps) {
         >
           <div
             className={cn(
-              'flex flex-1 items-end rounded-xl border bg-slate-900/70 px-4 py-2.5 transition-colors duration-150',
+              'flex flex-1 items-end rounded-xl border bg-card px-4 py-2.5 transition-colors duration-150',
               streaming
-                ? 'border-slate-700/40'
-                : 'border-slate-700/60 focus-within:border-indigo-500/50',
+                ? 'border-border/40'
+                : 'border-border focus-within:border-indigo-500/40',
             )}
           >
             <textarea
@@ -247,7 +246,7 @@ export default function ChatWindow({ repo, repoId }: ChatWindowProps) {
               disabled={streaming}
               placeholder={streaming ? 'Responding…' : 'Ask about this codebase…'}
               rows={1}
-              className="max-h-44 flex-1 resize-none bg-transparent py-0.5 text-sm leading-relaxed text-slate-200 placeholder:text-slate-600 outline-none disabled:opacity-40"
+              className="max-h-44 flex-1 resize-none bg-transparent py-0.5 text-sm leading-relaxed text-foreground placeholder:text-muted-foreground outline-none disabled:opacity-40"
             />
           </div>
 
@@ -256,7 +255,7 @@ export default function ChatWindow({ repo, repoId }: ChatWindowProps) {
               type="button"
               onClick={handleStop}
               size="icon-lg"
-              className="shrink-0 border border-slate-700 bg-slate-800 text-slate-200 hover:bg-slate-700 hover:text-white"
+              className="shrink-0 border border-border bg-card text-foreground hover:bg-muted"
               aria-label="Stop generating"
             >
               <Square className="size-4 fill-current" />
@@ -274,7 +273,7 @@ export default function ChatWindow({ repo, repoId }: ChatWindowProps) {
           )}
         </form>
 
-        <p className="mt-2.5 text-center text-[11px] text-slate-700">
+        <p className="mt-2.5 text-center text-[11px] text-muted-foreground/50">
           {mode === 'local'
             ? '⚡ Local — no data leaves your machine'
             : '☁ Cloud — data sent to LLM API'}

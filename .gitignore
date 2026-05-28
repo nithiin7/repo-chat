@@ -17,6 +17,8 @@ env/
 *.env.local
 
 # ChromaDB & temp repos
+chroma_db/
+repos/
 backend/chroma_db/
 backend/tmp_repos/
 

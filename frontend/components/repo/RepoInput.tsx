@@ -52,10 +52,10 @@ export default function RepoInput() {
   }
 
   const borderColor = {
-    idle: 'border-white/20 focus-within:border-indigo-400/80',
-    indexing: 'border-indigo-400/60',
-    success: 'border-emerald-400/70',
-    error: 'border-red-400/70',
+    idle: 'border-border focus-within:border-primary/60',
+    indexing: 'border-primary/50',
+    success: 'border-emerald-500/60',
+    error: 'border-red-500/60',
   }[status]
 
   return (
@@ -63,12 +63,12 @@ export default function RepoInput() {
       <form onSubmit={handleSubmit}>
         <div
           className={cn(
-            'flex items-center gap-2 rounded-xl border-2 bg-white/10 p-1.5 backdrop-blur-sm transition-all duration-300',
+            'flex items-center gap-2 rounded-xl border-2 bg-card p-1.5 transition-all duration-300',
             borderColor,
           )}
         >
           <div className="flex flex-1 items-center gap-2.5 pl-3">
-            <Link2 className="size-4 shrink-0 text-slate-400" />
+            <Link2 className="size-4 shrink-0 text-muted-foreground" />
             <input
               ref={inputRef}
               type="text"
@@ -78,7 +78,7 @@ export default function RepoInput() {
               disabled={status === 'indexing'}
               spellCheck={false}
               autoComplete="off"
-              className="min-w-0 flex-1 bg-transparent py-1.5 text-sm text-white placeholder:text-slate-500 outline-none disabled:opacity-60"
+              className="min-w-0 flex-1 bg-transparent py-1.5 text-sm text-foreground placeholder:text-muted-foreground outline-none disabled:opacity-60"
             />
           </div>
 
@@ -111,8 +111,8 @@ export default function RepoInput() {
         <div
           className={cn(
             'mt-3 flex items-start gap-2.5 rounded-lg px-4 py-3 text-sm',
-            status === 'success' && 'bg-emerald-500/15 text-emerald-300',
-            status === 'error' && 'bg-red-500/15 text-red-300',
+            status === 'success' && 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-300',
+            status === 'error' && 'bg-red-500/10 text-red-700 dark:text-red-300',
           )}
         >
           {status === 'success' ? (

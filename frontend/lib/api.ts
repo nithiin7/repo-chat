@@ -65,7 +65,14 @@ export function chatStream(
                 onDone();
                 return;
               }
-              if (data) onToken(data);
+              if (data) {
+                try {
+                  const parsed = JSON.parse(data);
+                  onToken(typeof parsed === "string" ? parsed : data);
+                } catch {
+                  onToken(data);
+                }
+              }
             }
           } else if (line === "") {
             // Blank line ends an SSE event block; reset event name

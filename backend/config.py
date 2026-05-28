@@ -9,7 +9,7 @@ from functools import lru_cache
 class Settings(BaseSettings):
     # LLM — Ollama
     ollama_base_url: str = "http://localhost:11434"
-    ollama_model: str = "llama3.1:8b"
+    ollama_model: str = "qwen3:4b"
 
     # LLM — Cloud (OpenAI-compatible + Anthropic)
     openai_api_key: str = ""

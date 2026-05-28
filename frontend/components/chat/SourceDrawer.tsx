@@ -44,19 +44,19 @@ export default function SourceDrawer({ sources, open, onOpenChange }: SourceDraw
     <Sheet open={open} onOpenChange={(o) => onOpenChange(o)}>
       <SheetContent
         side="right"
-        className="flex flex-col border-slate-800 bg-slate-900 p-0 text-slate-200 data-[side=right]:sm:max-w-xl"
+        className="flex flex-col border-border bg-background p-0 text-foreground data-[side=right]:sm:max-w-xl"
       >
         {/* Header */}
-        <SheetHeader className="shrink-0 border-b border-slate-800 px-5 py-4 pr-12">
+        <SheetHeader className="shrink-0 border-b border-border px-5 py-4 pr-12">
           <div className="flex items-center gap-3">
-            <div className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-indigo-600/20 text-indigo-400">
+            <div className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-indigo-500/10 text-indigo-400">
               <Files className="size-4" />
             </div>
             <div>
-              <SheetTitle className="text-sm font-semibold text-slate-100">
+              <SheetTitle className="text-sm font-semibold text-foreground">
                 Sources
               </SheetTitle>
-              <SheetDescription className="text-xs text-slate-500">
+              <SheetDescription className="text-xs text-muted-foreground">
                 {sources.length} file{sources.length !== 1 ? 's' : ''} referenced in this answer
               </SheetDescription>
             </div>
@@ -75,15 +75,15 @@ export default function SourceDrawer({ sources, open, onOpenChange }: SourceDraw
               return (
                 <div
                   key={i}
-                  className="group overflow-hidden rounded-xl border border-slate-800 bg-slate-950/60"
+                  className="group overflow-hidden rounded-xl border border-border bg-card"
                 >
                   {/* File path row */}
-                  <div className="flex items-center justify-between gap-3 border-b border-slate-800 bg-slate-800/40 px-4 py-2.5">
+                  <div className="flex items-center justify-between gap-3 border-b border-border bg-muted/50 px-4 py-2.5">
                     <div className="flex min-w-0 items-center gap-2">
-                      <FileCode className="size-3.5 shrink-0 text-slate-500" />
+                      <FileCode className="size-3.5 shrink-0 text-muted-foreground" />
                       <span className="min-w-0 truncate font-mono text-xs">
-                        {dir && <span className="text-slate-500">{dir}</span>}
-                        <span className="font-medium text-slate-200">{filename}</span>
+                        {dir && <span className="text-muted-foreground">{dir}</span>}
+                        <span className="font-medium text-foreground">{filename}</span>
                       </span>
                     </div>
                     <span
@@ -98,19 +98,19 @@ export default function SourceDrawer({ sources, open, onOpenChange }: SourceDraw
 
                   {/* Code chunk */}
                   <div className="relative">
-                    <pre className="max-h-60 overflow-auto p-4 text-xs leading-relaxed text-slate-300">
+                    <pre className="max-h-60 overflow-auto p-4 text-xs leading-relaxed text-foreground/80">
                       <code className="font-mono">{src.chunk}</code>
                     </pre>
 
-                    {/* Copy button — always visible on hover */}
+                    {/* Copy button — visible on hover */}
                     <button
                       onClick={() => copy(src.chunk, i)}
                       aria-label="Copy code"
                       className={cn(
                         'absolute right-2 top-2 flex items-center gap-1 rounded-md px-2 py-1 text-[10px] font-medium transition-all duration-150',
                         copiedIdx === i
-                          ? 'bg-emerald-900/60 text-emerald-400'
-                          : 'bg-slate-800 text-slate-500 opacity-0 group-hover:opacity-100 hover:text-slate-200',
+                          ? 'bg-emerald-500/15 text-emerald-400'
+                          : 'bg-card border border-border text-muted-foreground opacity-0 group-hover:opacity-100 hover:text-foreground',
                       )}
                     >
                       {copiedIdx === i ? (

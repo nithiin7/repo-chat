@@ -62,11 +62,13 @@ def _get_chroma_client() -> chromadb.PersistentClient:
 
 
 @lru_cache(maxsize=1)
-def _get_embed_model() -> HuggingFaceEmbedding:
+def get_embed_model() -> HuggingFaceEmbedding:
     """Load bge-small-en-v1.5 once; subsequent calls return the cached model."""
     model_name = get_settings().embedding_model
     logger.info("Loading embedding model '%s'…", model_name)
     return HuggingFaceEmbedding(model_name=model_name)
+
+_get_embed_model = get_embed_model  # backward-compat alias
 
 
 def _sanitize_name(repo_id: str) -> str:

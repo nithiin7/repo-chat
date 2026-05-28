@@ -1,6 +1,7 @@
 import { CodeXml, Zap } from 'lucide-react'
 import RepoList from '@/components/repo/RepoList'
 import RepoInput from '@/components/repo/RepoInput'
+import { ThemeToggle } from '@/components/ui/theme-toggle'
 import { listRepos } from '@/lib/api'
 import type { Repo } from '@/types'
 
@@ -15,33 +16,35 @@ export default async function HomePage() {
   }
 
   return (
-    <div className="flex min-h-screen flex-col bg-slate-50">
-      {/* ── Hero ──────────────────────────────────────────────── */}
-      <header className="relative overflow-hidden bg-linear-to-b from-slate-950 via-slate-900 to-slate-900 px-4 pb-16 pt-20 text-center">
+    <div className="flex min-h-screen flex-col">
+      {/* ── Hero ── */}
+      <header className="relative overflow-hidden px-4 pb-24 pt-28 text-center">
         {/* Radial glow */}
-        <div
-          aria-hidden
-          className="pointer-events-none absolute inset-0 flex items-center justify-center"
-        >
-          <div className="h-80 w-80 rounded-full bg-indigo-600/15 blur-3xl" />
+        <div aria-hidden className="pointer-events-none absolute inset-0 overflow-hidden">
+          <div className="absolute left-1/2 -top-32 h-144 w-xl -translate-x-1/2 rounded-full bg-indigo-600/8 blur-3xl" />
+        </div>
+
+        {/* Theme toggle — top-right */}
+        <div className="absolute right-4 top-4">
+          <ThemeToggle />
         </div>
 
         {/* Badge */}
-        <div className="relative mx-auto mb-6 inline-flex items-center gap-1.5 rounded-full border border-indigo-500/30 bg-indigo-500/10 px-3 py-1 text-xs font-medium tracking-wide text-indigo-400">
-          <Zap className="size-3" />
+        <div className="relative mx-auto mb-8 inline-flex items-center gap-2 rounded-full border border-border bg-muted px-3.5 py-1.5 text-xs font-medium tracking-wide text-muted-foreground">
+          <Zap className="size-3 text-indigo-500" />
           RAG-powered · Local or Cloud LLM
         </div>
 
         {/* Logo */}
-        <div className="relative mx-auto mb-4 flex size-14 items-center justify-center rounded-2xl bg-linear-to-br from-indigo-500 to-indigo-700 shadow-xl shadow-indigo-500/30">
-          <CodeXml className="size-7 text-white" />
+        <div className="relative mx-auto mb-5 flex size-14 items-center justify-center rounded-2xl border border-indigo-500/20 bg-indigo-500/10 shadow-lg shadow-indigo-500/5">
+          <CodeXml className="size-7 text-indigo-500" />
         </div>
 
-        {/* Title */}
-        <h1 className="relative text-5xl font-bold tracking-tight text-white sm:text-6xl">
+        {/* Title — gradient adapts to mode */}
+        <h1 className="relative bg-linear-to-b from-foreground to-foreground/40 bg-clip-text text-5xl font-bold tracking-tight text-transparent dark:from-white dark:via-white/90 dark:to-white/40 sm:text-6xl">
           CodeLens
         </h1>
-        <p className="relative mt-3 text-lg text-slate-400">
+        <p className="relative mt-3 text-base text-muted-foreground">
           Ask anything about any codebase
         </p>
 
@@ -49,21 +52,15 @@ export default async function HomePage() {
         <div className="relative mx-auto mt-10 max-w-2xl">
           <RepoInput />
         </div>
-
-        {/* Fade into content */}
-        <div
-          aria-hidden
-          className="pointer-events-none absolute inset-x-0 bottom-0 h-10 bg-linear-to-b from-transparent to-slate-50"
-        />
       </header>
 
-      {/* ── Repo list ─────────────────────────────────────────── */}
+      {/* ── Repo list ── */}
       <main className="mx-auto w-full max-w-5xl flex-1 px-4 py-12">
         <RepoList repos={repos} />
       </main>
 
-      {/* ── Footer ────────────────────────────────────────────── */}
-      <footer className="border-t border-slate-200 py-6 text-center text-xs text-slate-400">
+      {/* ── Footer ── */}
+      <footer className="border-t border-border py-6 text-center text-xs text-muted-foreground/60">
         CodeLens — powered by LlamaIndex · ChromaDB · Ollama / Anthropic
       </footer>
     </div>
