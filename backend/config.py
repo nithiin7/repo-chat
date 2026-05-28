@@ -30,7 +30,7 @@ class Settings(BaseSettings):
     bitbucket_app_password: str = ""
 
     # Misc
-    tmp_repo_dir: str = "./tmp_repos"
+    repos_dir: str = "./repos"
 
     class Config:
         env_file = ".env"
