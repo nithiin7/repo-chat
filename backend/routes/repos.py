@@ -8,8 +8,8 @@ from fastapi import APIRouter, HTTPException
 from backend.config import get_settings
 from backend.core.fetcher import FetchResult, RepoFetchError, fetch_repo, get_remote_head
 from backend.core.indexer import build_index, delete_index
-from backend import db
-from backend.models import (
+from backend.persistence import db
+from backend.schemas import (
     ChatInfo,
     CreateChatRequest,
     IndexRequest,
@@ -17,7 +17,7 @@ from backend.models import (
     RepoInfo,
     RepoStatusResponse,
 )
-from backend.store import read_metadata, repo_id_from_url, write_metadata
+from backend.core.store import read_metadata, repo_id_from_url, write_metadata
 
 router = APIRouter()
 

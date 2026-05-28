@@ -2,7 +2,7 @@ import httpx
 from fastapi import APIRouter, HTTPException
 
 from backend.config import get_settings, save_settings_overlay
-from backend.models import SettingsUpdate, SettingsView
+from backend.schemas import SettingsUpdate, SettingsView
 
 router = APIRouter()
 

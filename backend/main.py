@@ -8,7 +8,7 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from backend import db
+from backend.persistence import db
 from backend.routes import chats, repos, settings
 
 

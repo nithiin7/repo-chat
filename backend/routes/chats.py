@@ -8,9 +8,9 @@ from fastapi.responses import StreamingResponse
 
 from backend.core.llm import LLMError, generate_suggestions, stream_answer
 from backend.core.retriever import SourceChunk, retrieve
-from backend import db
-from backend.models import ChatInfo, ChatMessageInfo, ChatRequest, RenameChatRequest
-from backend.store import read_metadata
+from backend.persistence import db
+from backend.schemas import ChatInfo, ChatMessageInfo, ChatRequest, RenameChatRequest
+from backend.core.store import read_metadata
 
 logger = logging.getLogger(__name__)
 
