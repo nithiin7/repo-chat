@@ -46,6 +46,7 @@ _SKIP_DIRS: frozenset[str] = frozenset(
 class FetchResult:
     local_path: Path
     file_paths: list[Path] = field(default_factory=list)
+    head_commit: str = ""
 
     @property
     def repo_name(self) -> str:
@@ -142,7 +143,8 @@ def _clone(
     dest.mkdir(parents=True, exist_ok=True)
 
     try:
-        git.Repo.clone_from(clone_url, str(dest), depth=1, no_single_branch=True)
+        cloned = git.Repo.clone_from(clone_url, str(dest), depth=1, no_single_branch=True)
+        head_sha = cloned.head.commit.hexsha
     except GitCommandError as exc:
         # Clean up the empty dest so a retry starts fresh.
         shutil.rmtree(dest, ignore_errors=True)
@@ -174,7 +176,7 @@ def _clone(
         raise RepoFetchError(f"Git clone failed for '{display_url}': {exc}") from exc
 
     files = collect_files(dest)
-    return FetchResult(local_path=dest, file_paths=files)
+    return FetchResult(local_path=dest, file_paths=files, head_commit=head_sha)
 
 
 # ----- provider-specific fetchers -------------------------------------------
@@ -247,3 +249,52 @@ def fetch_repo(repo_url: str) -> FetchResult:
     if provider == "github":
         return fetch_github_repo(owner, repo_name, dest)
     return fetch_bitbucket_repo(owner, repo_name, dest)
+
+
+# ----- remote HEAD commit check ---------------------------------------------
+
+def get_remote_head(repo_url: str) -> str | None:
+    """
+    Return the current HEAD commit SHA of the remote repo without cloning.
+    Uses `git ls-remote` with the same auth-injected URL used for cloning.
+    Returns None if the check fails for any reason.
+    """
+    try:
+        parsed = parse_repo_url(repo_url)
+    except RepoFetchError:
+        return None
+
+    provider = parsed["provider"]
+    owner = parsed["owner"]
+    repo_name = parsed["repo_name"]
+    settings = get_settings()
+
+    if provider == "github":
+        token = settings.github_token
+        if token:
+            clone_url = f"https://{token}@github.com/{owner}/{repo_name}.git"
+        else:
+            clone_url = f"https://github.com/{owner}/{repo_name}.git"
+    else:
+        username = settings.bitbucket_username
+        app_password = settings.bitbucket_app_password
+        if username and app_password:
+            clone_url = (
+                f"https://{username}:{app_password}"
+                f"@bitbucket.org/{owner}/{repo_name}.git"
+            )
+        else:
+            clone_url = f"https://bitbucket.org/{owner}/{repo_name}.git"
+
+    try:
+        output = git.cmd.Git().execute(
+            ["git", "ls-remote", clone_url, "HEAD"],
+            with_extended_output=False,
+        )
+        if output:
+            sha = output.split()[0]
+            if len(sha) == 40:
+                return sha
+    except Exception:
+        pass
+    return None

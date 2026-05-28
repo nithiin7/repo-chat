@@ -1,22 +1,30 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { motion } from 'framer-motion'
-import { GitFork, MessageSquare, Trash2, Loader2, FileCode2, Clock } from 'lucide-react'
+import { GitFork, MessageSquare, Trash2, Loader2, FileCode2, Clock, RefreshCw } from 'lucide-react'
 import { Button } from '@/components/ui/button'
-import { deleteRepo } from '@/lib/api'
+import { checkRepoStatus, deleteRepo, indexRepo } from '@/lib/api'
 import { cn } from '@/lib/utils'
 import type { Repo } from '@/types'
 
 export default function RepoCard({ repo, index = 0 }: { repo: Repo; index?: number }) {
   const router = useRouter()
   const [deleting, setDeleting] = useState(false)
+  const [hasUpdates, setHasUpdates] = useState(false)
+  const [reindexing, setReindexing] = useState(false)
 
   const displayName = repo.name || repo.url.replace(/^https?:\/\//, '').split('/').slice(1, 3).join('/')
   const indexedAt = new Date(repo.indexed_at).toLocaleDateString('en-US', {
     month: 'short', day: 'numeric', year: 'numeric',
   })
+
+  useEffect(() => {
+    checkRepoStatus(repo.repo_id)
+      .then((status) => setHasUpdates(status.has_updates))
+      .catch(() => {/* silently ignore — network or auth failure */})
+  }, [repo.repo_id])
 
   const handleDelete = async () => {
     setDeleting(true)
@@ -25,6 +33,19 @@ export default function RepoCard({ repo, index = 0 }: { repo: Repo; index?: numb
       router.refresh()
     } catch {
       setDeleting(false)
+    }
+  }
+
+  const handleReindex = async () => {
+    setReindexing(true)
+    try {
+      await indexRepo({ repo_url: repo.url, force: true })
+      setHasUpdates(false)
+      router.refresh()
+    } catch {
+      // leave hasUpdates as-is so user can retry
+    } finally {
+      setReindexing(false)
     }
   }
 
@@ -37,33 +58,60 @@ export default function RepoCard({ repo, index = 0 }: { repo: Repo; index?: numb
       className={cn(
         'group relative flex flex-col gap-4 rounded-xl border border-border bg-card p-5',
         'transition-[border-color,background-color,box-shadow] duration-200 hover:border-indigo-500/30 hover:bg-card/80 hover:shadow-lg hover:shadow-indigo-500/5',
-        deleting && 'pointer-events-none opacity-40',
+        hasUpdates && 'border-amber-500/30',
+        (deleting || reindexing) && 'pointer-events-none opacity-40',
       )}
     >
-      {/* Delete button — visible on hover */}
-      <button
-        onClick={handleDelete}
-        disabled={deleting}
-        aria-label="Delete repository"
-        className="absolute right-3 top-3 cursor-pointer rounded-md p-1.5 text-muted-foreground opacity-0 transition-all duration-150 hover:bg-red-500/10 hover:text-red-400 group-hover:opacity-100"
-      >
-        {deleting ? (
-          <Loader2 className="size-3.5 animate-spin" />
-        ) : (
-          <Trash2 className="size-3.5" />
-        )}
-      </button>
+      {/* Action buttons — visible on hover */}
+      <div className="absolute right-3 top-3 flex items-center gap-1 opacity-0 transition-opacity duration-150 group-hover:opacity-100">
+        <button
+          onClick={handleReindex}
+          disabled={reindexing}
+          aria-label="Re-index repository"
+          className={cn(
+            'cursor-pointer rounded-md p-1.5 text-muted-foreground transition-all duration-150',
+            hasUpdates
+              ? 'opacity-100 text-amber-400 hover:bg-amber-500/10'
+              : 'hover:bg-muted hover:text-foreground',
+          )}
+        >
+          <RefreshCw className={cn('size-3.5', reindexing && 'animate-spin')} />
+        </button>
+        <button
+          onClick={handleDelete}
+          disabled={deleting}
+          aria-label="Delete repository"
+          className="cursor-pointer rounded-md p-1.5 text-muted-foreground transition-all duration-150 hover:bg-red-500/10 hover:text-red-400"
+        >
+          {deleting ? (
+            <Loader2 className="size-3.5 animate-spin" />
+          ) : (
+            <Trash2 className="size-3.5" />
+          )}
+        </button>
+      </div>
 
       {/* Header */}
       <div className="flex items-start gap-3">
-        <div className="mt-0.5 flex size-9 shrink-0 items-center justify-center rounded-lg bg-indigo-500/10 text-indigo-400">
+        <div className={cn(
+          'mt-0.5 flex size-9 shrink-0 items-center justify-center rounded-lg',
+          hasUpdates ? 'bg-amber-500/10 text-amber-400' : 'bg-indigo-500/10 text-indigo-400',
+        )}>
           <GitFork className="size-4" />
         </div>
-        <div className="min-w-0 flex-1 pr-6">
+        <div className="min-w-0 flex-1 pr-16">
           <h3 className="truncate font-semibold text-foreground">{displayName}</h3>
           <p className="mt-0.5 truncate text-xs text-muted-foreground">{repo.url}</p>
         </div>
       </div>
+
+      {/* Updates badge */}
+      {hasUpdates && (
+        <div className="flex items-center gap-1.5 rounded-md bg-amber-500/10 px-2.5 py-1.5 text-xs font-medium text-amber-400">
+          <RefreshCw className="size-3" />
+          New commits available — re-index to update
+        </div>
+      )}
 
       {/* Stats */}
       <div className="flex items-center gap-3 text-xs text-muted-foreground">
@@ -79,14 +127,41 @@ export default function RepoCard({ repo, index = 0 }: { repo: Repo; index?: numb
       </div>
 
       {/* CTA */}
-      <Button
-        onClick={() => router.push(`/chat/${repo.repo_id}`)}
-        size="sm"
-        className="mt-auto w-full gap-2"
-      >
-        <MessageSquare className="size-3.5" />
-        Open Chat
-      </Button>
+      {hasUpdates ? (
+        <div className="mt-auto flex gap-2">
+          <Button
+            onClick={handleReindex}
+            disabled={reindexing}
+            size="sm"
+            variant="outline"
+            className="flex-1 gap-2 border-amber-500/30 text-amber-400 hover:bg-amber-500/10 hover:text-amber-300"
+          >
+            {reindexing ? (
+              <Loader2 className="size-3.5 animate-spin" />
+            ) : (
+              <RefreshCw className="size-3.5" />
+            )}
+            {reindexing ? 'Re-indexing…' : 'Re-index'}
+          </Button>
+          <Button
+            onClick={() => router.push(`/chat/${repo.repo_id}`)}
+            size="sm"
+            className="flex-1 gap-2"
+          >
+            <MessageSquare className="size-3.5" />
+            Open Chat
+          </Button>
+        </div>
+      ) : (
+        <Button
+          onClick={() => router.push(`/chat/${repo.repo_id}`)}
+          size="sm"
+          className="mt-auto w-full gap-2"
+        >
+          <MessageSquare className="size-3.5" />
+          Open Chat
+        </Button>
+      )}
     </motion.article>
   )
 }

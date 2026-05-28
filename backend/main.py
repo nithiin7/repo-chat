@@ -38,7 +38,7 @@ from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, HttpUrl
 
 from backend.config import get_settings, save_settings_overlay
-from backend.core.fetcher import FetchResult, RepoFetchError, fetch_repo
+from backend.core.fetcher import FetchResult, RepoFetchError, fetch_repo, get_remote_head
 from backend.core.indexer import build_index, delete_index
 from backend.core.llm import LLMError, LLMMode, stream_answer
 from backend.core.retriever import SourceChunk, retrieve
@@ -52,6 +52,7 @@ logger = logging.getLogger(__name__)
 
 class IndexRequest(BaseModel):
     repo_url: HttpUrl
+    force: bool = False
 
 
 class IndexResponse(BaseModel):
@@ -73,6 +74,14 @@ class RepoInfo(BaseModel):
     url: str
     indexed_at: str
     file_count: int
+    last_indexed_commit: str | None = None
+
+
+class RepoStatusResponse(BaseModel):
+    repo_id: str
+    has_updates: bool
+    indexed_commit: str | None = None
+    remote_commit: str | None = None
 
 
 class ChatInfo(BaseModel):
@@ -199,12 +208,19 @@ async def index_repo(body: IndexRequest):
     repo_id = _repo_id_from_url(url)
 
     existing = _read_metadata()
-    if repo_id in existing:
+    if repo_id in existing and not body.force:
         return IndexResponse(
             repo_id=repo_id,
             file_count=existing[repo_id]["file_count"],
             status="already_indexed",
         )
+
+    # If force re-indexing, tear down the old data first.
+    if repo_id in existing and body.force:
+        await asyncio.to_thread(delete_index, repo_id)
+        repo_dir = Path(get_settings().repos_dir) / existing[repo_id]["name"]
+        if repo_dir.exists():
+            await asyncio.to_thread(shutil.rmtree, str(repo_dir), True)
 
     # Clone — network + disk I/O, run off the event loop.
     try:
@@ -225,13 +241,14 @@ async def index_repo(body: IndexRequest):
         "url": url,
         "indexed_at": datetime.now(timezone.utc).isoformat(),
         "file_count": len(result.file_paths),
+        "last_indexed_commit": result.head_commit or None,
     }
     _write_metadata(existing)
 
     return IndexResponse(
         repo_id=repo_id,
         file_count=len(result.file_paths),
-        status="indexed",
+        status="reindexed" if body.force else "indexed",
     )
 
 
@@ -364,6 +381,43 @@ async def delete_repo(repo_id: str):
     _write_metadata(metadata)
 
     return {"status": "deleted", "repo_id": repo_id}
+
+
+# ---------------------------------------------------------------------------
+# GET /repos/{repo_id}/status
+# ---------------------------------------------------------------------------
+
+@app.get("/repos/{repo_id}/status", response_model=RepoStatusResponse)
+async def repo_status(repo_id: str):
+    """
+    Check whether the remote repo has new commits since the last index.
+
+    Runs git ls-remote against the remote without cloning.  Returns
+    has_updates=False if the indexed commit is unknown (legacy entry) or
+    if the remote cannot be reached.
+    """
+    metadata = _read_metadata()
+    if repo_id not in metadata:
+        raise HTTPException(status_code=404, detail=f"Repo '{repo_id}' not found.")
+
+    entry = metadata[repo_id]
+    indexed_commit: str | None = entry.get("last_indexed_commit")
+    url: str = entry["url"]
+
+    remote_commit = await asyncio.to_thread(get_remote_head, url)
+
+    has_updates = bool(
+        indexed_commit
+        and remote_commit
+        and indexed_commit != remote_commit
+    )
+
+    return RepoStatusResponse(
+        repo_id=repo_id,
+        has_updates=has_updates,
+        indexed_commit=indexed_commit,
+        remote_commit=remote_commit,
+    )
 
 
 # ---------------------------------------------------------------------------

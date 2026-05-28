@@ -1,4 +1,4 @@
-import type { Chat, ChatMessage, ChatRequest, IndexRequest, IndexResponse, Repo, Settings, SettingsUpdate, SourceChunk } from "@/types";
+import type { Chat, ChatMessage, ChatRequest, IndexRequest, IndexResponse, Repo, RepoStatus, Settings, SettingsUpdate, SourceChunk } from "@/types";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
 
@@ -93,6 +93,14 @@ export async function listRepos(): Promise<Repo[]> {
     throw new Error(`List repos failed: ${res.status} ${await res.text()}`);
   }
   return res.json() as Promise<Repo[]>;
+}
+
+export async function checkRepoStatus(repoId: string): Promise<RepoStatus> {
+  const res = await fetch(`${API_BASE}/repos/${encodeURIComponent(repoId)}/status`);
+  if (!res.ok) {
+    throw new Error(`Status check failed: ${res.status} ${await res.text()}`);
+  }
+  return res.json() as Promise<RepoStatus>;
 }
 
 export async function deleteRepo(repoId: string): Promise<{ status: string }> {

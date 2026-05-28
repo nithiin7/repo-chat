@@ -4,10 +4,19 @@ export interface Repo {
   url: string;
   indexed_at: string;
   file_count: number;
+  last_indexed_commit?: string;
+}
+
+export interface RepoStatus {
+  repo_id: string;
+  has_updates: boolean;
+  indexed_commit: string | null;
+  remote_commit: string | null;
 }
 
 export interface IndexRequest {
   repo_url: string;
+  force?: boolean;
 }
 
 export interface IndexResponse {
