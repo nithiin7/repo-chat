@@ -105,11 +105,11 @@ export default function SettingsPage() {
       <div className="border-b border-border/50 bg-muted/30">
         <div className="mx-auto flex max-w-screen-2xl items-center gap-4 px-4 py-5 sm:px-6 lg:px-10">
           <Link
-            href="/"
+            href="/dashboard"
             className="flex items-center gap-1.5 rounded-md px-2 py-1 text-sm text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
           >
             <ArrowLeft className="size-3.5" />
-            Home
+            Dashboard
           </Link>
           <span className="text-border">/</span>
           <span className="text-sm font-medium">Settings</span>

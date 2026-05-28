@@ -26,5 +26,5 @@ export default async function ChatIndexPage({
     // Backend unreachable
   }
 
-  redirect(targetChatId ? `/chat/${repo_id}/${targetChatId}` : '/')
+  redirect(targetChatId ? `/chat/${repo_id}/${targetChatId}` : '/dashboard')
 }

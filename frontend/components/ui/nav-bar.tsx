@@ -19,7 +19,7 @@ export function NavBar({ hideSettings = false, transparent = false }: NavBarProp
     )}>
       <div className="mx-auto flex h-14 max-w-screen-2xl items-center justify-between px-4 sm:px-6 lg:px-10">
         {/* Brand */}
-        <Link href="/" className="flex items-center gap-2.5 text-sm font-semibold">
+        <Link href="/dashboard" className="flex items-center gap-2.5 text-sm font-semibold">
           <div className="flex size-7 items-center justify-center rounded-lg border border-indigo-500/20 bg-indigo-500/10">
             <CodeXml className="size-4 text-indigo-500" />
           </div>
