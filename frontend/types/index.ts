@@ -23,3 +23,18 @@ export interface ChatRequest {
 }
 
 export type LLMMode = "local" | "cloud";
+
+export interface SourceChunk {
+  file_path: string;
+  chunk: string;
+  score: number;
+}
+
+export interface Message {
+  id: string;
+  role: "user" | "assistant";
+  content: string;
+  streaming?: boolean;
+  error?: boolean;
+  sources?: SourceChunk[];
+}

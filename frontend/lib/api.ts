@@ -1,4 +1,4 @@
-import type { ChatRequest, IndexRequest, IndexResponse, Repo } from "@/types";
+import type { ChatRequest, IndexRequest, IndexResponse, Repo, SourceChunk } from "@/types";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
 
@@ -17,16 +17,10 @@ export async function indexRepo(body: IndexRequest): Promise<IndexResponse> {
 export function chatStream(
   body: ChatRequest,
   onToken: (token: string) => void,
+  onSources: (sources: SourceChunk[]) => void,
   onError: (err: Event) => void,
   onDone: () => void
 ): () => void {
-  const params = new URLSearchParams({
-    repo_id: body.repo_id,
-    question: body.question,
-    mode: body.mode,
-  });
-
-  // POST /chat returns SSE — open via EventSource-compatible POST using fetch + ReadableStream
   const controller = new AbortController();
 
   fetch(`${API_BASE}/chat`, {
@@ -42,6 +36,8 @@ export function chatStream(
       const reader = res.body.getReader();
       const decoder = new TextDecoder();
       let buffer = "";
+      // Track the current SSE event name across lines (resets on blank line)
+      let currentEvent = "message";
 
       while (true) {
         const { done, value } = await reader.read();
@@ -54,13 +50,26 @@ export function chatStream(
         buffer = lines.pop() ?? "";
 
         for (const line of lines) {
-          if (line.startsWith("data: ")) {
+          if (line.startsWith("event: ")) {
+            currentEvent = line.slice(7).trim();
+          } else if (line.startsWith("data: ")) {
             const data = line.slice(6).trim();
-            if (data === "[DONE]") {
-              onDone();
-              return;
+            if (currentEvent === "sources") {
+              try {
+                onSources(JSON.parse(data) as SourceChunk[]);
+              } catch {
+                // Malformed sources payload — skip silently
+              }
+            } else {
+              if (data === "[DONE]") {
+                onDone();
+                return;
+              }
+              if (data) onToken(data);
             }
-            if (data) onToken(data);
+          } else if (line === "") {
+            // Blank line ends an SSE event block; reset event name
+            currentEvent = "message";
           }
         }
       }
