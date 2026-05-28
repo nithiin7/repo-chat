@@ -2,6 +2,7 @@
 
 import { useState, useRef, useEffect, useCallback } from 'react'
 import Link from 'next/link'
+import { motion } from 'framer-motion'
 import { ArrowLeft, GitFork, SendHorizontal, Square, Sparkles } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { ThemeToggle } from '@/components/ui/theme-toggle'
@@ -149,7 +150,12 @@ export default function ChatWindow({ repo, repoId }: ChatWindowProps) {
   return (
     <div className="flex h-screen flex-col bg-background text-foreground">
       {/* ── Sticky header ── */}
-      <header className="sticky top-0 z-10 flex shrink-0 items-center justify-between gap-4 border-b border-border bg-background/90 px-4 py-3 backdrop-blur-md">
+      <motion.header
+        initial={{ opacity: 0, y: -8 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.3, ease: [0.25, 0.1, 0.25, 1] }}
+        className="sticky top-0 z-10 flex shrink-0 items-center justify-between gap-4 border-b border-border bg-background/90 px-4 py-3 backdrop-blur-md"
+      >
         <div className="flex min-w-0 items-center gap-2.5">
           <Link
             href="/"
@@ -178,7 +184,7 @@ export default function ChatWindow({ repo, repoId }: ChatWindowProps) {
           <LLMModeToggle mode={mode} onChange={setMode} disabled={streaming} />
           <ThemeToggle />
         </div>
-      </header>
+      </motion.header>
 
       {/* ── Message list ── */}
       <div
@@ -188,26 +194,39 @@ export default function ChatWindow({ repo, repoId }: ChatWindowProps) {
       >
         {messages.length === 0 ? (
           <div className="flex h-full flex-col items-center justify-center gap-6 px-4 pb-16 pt-8 text-center">
-            <div className="flex size-14 items-center justify-center rounded-2xl border border-border bg-card text-indigo-400">
+            <motion.div
+              initial={{ opacity: 0, scale: 0.8 }}
+              animate={{ opacity: 1, scale: 1 }}
+              transition={{ duration: 0.4, ease: [0.25, 0.1, 0.25, 1] }}
+              className="flex size-14 items-center justify-center rounded-2xl border border-border bg-card text-indigo-400"
+            >
               <Sparkles className="size-6" />
-            </div>
-            <div>
+            </motion.div>
+            <motion.div
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.4, delay: 0.1, ease: [0.25, 0.1, 0.25, 1] }}
+            >
               <p className="font-semibold text-foreground">Ask anything about this codebase</p>
               <p className="mt-1 text-sm text-muted-foreground">
                 {repo
                   ? `${repo.file_count.toLocaleString()} files indexed · ${mode === 'local' ? 'local LLM' : 'cloud LLM'}`
                   : 'Repository is indexed and ready'}
               </p>
-            </div>
+            </motion.div>
             <div className="grid w-full max-w-lg grid-cols-1 gap-2 sm:grid-cols-2">
-              {SUGGESTIONS.map((s) => (
-                <button
+              {SUGGESTIONS.map((s, i) => (
+                <motion.button
                   key={s}
+                  initial={{ opacity: 0, y: 8 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.3, delay: 0.18 + i * 0.06, ease: [0.25, 0.1, 0.25, 1] }}
+                  whileHover={{ y: -2 }}
                   onClick={() => submit(s)}
-                  className="rounded-xl border border-border bg-card/60 px-4 py-3 text-left text-sm text-muted-foreground transition-all hover:border-indigo-500/30 hover:bg-card hover:text-foreground"
+                  className="cursor-pointer rounded-xl border border-border bg-card/60 px-4 py-3 text-left text-sm text-muted-foreground transition-[border-color,background-color,color] duration-150 hover:border-indigo-500/30 hover:bg-card hover:text-foreground"
                 >
                   {s}
-                </button>
+                </motion.button>
               ))}
             </div>
           </div>
@@ -222,7 +241,12 @@ export default function ChatWindow({ repo, repoId }: ChatWindowProps) {
       </div>
 
       {/* ── Input bar ── */}
-      <div className="shrink-0 border-t border-border bg-background/90 px-4 py-4 backdrop-blur-md">
+      <motion.div
+        initial={{ opacity: 0, y: 8 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.3, delay: 0.1, ease: [0.25, 0.1, 0.25, 1] }}
+        className="shrink-0 border-t border-border bg-background/90 px-4 py-4 backdrop-blur-md"
+      >
         <form
           onSubmit={(e) => {
             e.preventDefault()
@@ -279,7 +303,7 @@ export default function ChatWindow({ repo, repoId }: ChatWindowProps) {
             : '☁ Cloud — data sent to LLM API'}
           &nbsp;·&nbsp;Enter to send · Shift+Enter for newline
         </p>
-      </div>
+      </motion.div>
     </div>
   )
 }

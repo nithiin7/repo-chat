@@ -18,7 +18,7 @@ export default function LLMModeToggle({ mode, onChange, disabled }: LLMModeToggl
         onClick={() => onChange('local')}
         disabled={disabled}
         className={cn(
-          'flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-medium transition-all duration-150 disabled:pointer-events-none',
+          'flex cursor-pointer items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-medium transition-all duration-150 disabled:pointer-events-none',
           mode === 'local'
             ? 'bg-emerald-500/15 text-emerald-400'
             : 'text-muted-foreground hover:text-foreground',
@@ -32,7 +32,7 @@ export default function LLMModeToggle({ mode, onChange, disabled }: LLMModeToggl
         onClick={() => onChange('cloud')}
         disabled={disabled}
         className={cn(
-          'flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-medium transition-all duration-150 disabled:pointer-events-none',
+          'flex cursor-pointer items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-medium transition-all duration-150 disabled:pointer-events-none',
           mode === 'cloud'
             ? 'bg-indigo-500/15 text-indigo-400'
             : 'text-muted-foreground hover:text-foreground',

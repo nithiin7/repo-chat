@@ -107,7 +107,7 @@ export default function SourceDrawer({ sources, open, onOpenChange }: SourceDraw
                       onClick={() => copy(src.chunk, i)}
                       aria-label="Copy code"
                       className={cn(
-                        'absolute right-2 top-2 flex items-center gap-1 rounded-md px-2 py-1 text-[10px] font-medium transition-all duration-150',
+                        'absolute right-2 top-2 flex cursor-pointer items-center gap-1 rounded-md px-2 py-1 text-[10px] font-medium transition-all duration-150',
                         copiedIdx === i
                           ? 'bg-emerald-500/15 text-emerald-400'
                           : 'bg-card border border-border text-muted-foreground opacity-0 group-hover:opacity-100 hover:text-foreground',

@@ -1,7 +1,6 @@
-import { CodeXml, Zap } from 'lucide-react'
 import RepoList from '@/components/repo/RepoList'
-import RepoInput from '@/components/repo/RepoInput'
 import { ThemeToggle } from '@/components/ui/theme-toggle'
+import HeroSection from '@/components/hero/HeroSection'
 import { listRepos } from '@/lib/api'
 import type { Repo } from '@/types'
 
@@ -29,29 +28,7 @@ export default async function HomePage() {
           <ThemeToggle />
         </div>
 
-        {/* Badge */}
-        <div className="relative mx-auto mb-8 inline-flex items-center gap-2 rounded-full border border-border bg-muted px-3.5 py-1.5 text-xs font-medium tracking-wide text-muted-foreground">
-          <Zap className="size-3 text-indigo-500" />
-          RAG-powered · Local or Cloud LLM
-        </div>
-
-        {/* Logo */}
-        <div className="relative mx-auto mb-5 flex size-14 items-center justify-center rounded-2xl border border-indigo-500/20 bg-indigo-500/10 shadow-lg shadow-indigo-500/5">
-          <CodeXml className="size-7 text-indigo-500" />
-        </div>
-
-        {/* Title — gradient adapts to mode */}
-        <h1 className="relative bg-linear-to-b from-foreground to-foreground/40 bg-clip-text text-5xl font-bold tracking-tight text-transparent dark:from-white dark:via-white/90 dark:to-white/40 sm:text-6xl">
-          CodeLens
-        </h1>
-        <p className="relative mt-3 text-base text-muted-foreground">
-          Ask anything about any codebase
-        </p>
-
-        {/* Index input */}
-        <div className="relative mx-auto mt-10 max-w-2xl">
-          <RepoInput />
-        </div>
+        <HeroSection />
       </header>
 
       {/* ── Repo list ── */}

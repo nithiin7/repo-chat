@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import { motion } from 'framer-motion'
 import { AlertCircle, Bot, User, Files } from 'lucide-react'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
@@ -16,7 +17,12 @@ export default function MessageBubble({ message }: { message: Message }) {
   const hasSources = !message.streaming && (message.sources?.length ?? 0) > 0
 
   return (
-    <div className={cn('mb-6 flex gap-3', isUser && 'flex-row-reverse')}>
+    <motion.div
+      initial={{ opacity: 0, y: 10 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.2, ease: [0.25, 0.1, 0.25, 1] }}
+      className={cn('mb-6 flex gap-3', isUser && 'flex-row-reverse')}
+    >
       {/* Avatar */}
       <div
         className={cn(
@@ -87,7 +93,7 @@ export default function MessageBubble({ message }: { message: Message }) {
           <>
             <button
               onClick={() => setDrawerOpen(true)}
-              className="flex items-center gap-1.5 self-start rounded-md px-1.5 py-1 text-xs text-muted-foreground transition-colors hover:bg-muted hover:text-indigo-500"
+              className="flex cursor-pointer items-center gap-1.5 self-start rounded-md px-1.5 py-1 text-xs text-muted-foreground transition-colors hover:bg-muted hover:text-indigo-500"
             >
               <Files className="size-3.5" />
               View {message.sources!.length} source{message.sources!.length !== 1 ? 's' : ''}
@@ -101,6 +107,6 @@ export default function MessageBubble({ message }: { message: Message }) {
           </>
         )}
       </div>
-    </div>
+    </motion.div>
   )
 }

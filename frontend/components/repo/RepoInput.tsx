@@ -2,6 +2,7 @@
 
 import { useState, useRef } from 'react'
 import { useRouter } from 'next/navigation'
+import { AnimatePresence, motion } from 'framer-motion'
 import { Loader2, CheckCircle2, AlertCircle, ArrowRight, Link2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { indexRepo } from '@/lib/api'
@@ -74,7 +75,7 @@ export default function RepoInput() {
               type="text"
               value={url}
               onChange={(e) => setUrl(e.target.value)}
-              placeholder="https://github.com/owner/repo  or  bitbucket.org/…"
+              placeholder="https://github.com/owner/repo or bitbucket.org/…"
               disabled={status === 'indexing'}
               spellCheck={false}
               autoComplete="off"
@@ -107,27 +108,37 @@ export default function RepoInput() {
       </form>
 
       {/* Feedback banner */}
-      {feedback && (
-        <div
-          className={cn(
-            'mt-3 flex items-start gap-2.5 rounded-lg px-4 py-3 text-sm',
-            status === 'success' && 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-300',
-            status === 'error' && 'bg-red-500/10 text-red-700 dark:text-red-300',
-          )}
-        >
-          {status === 'success' ? (
-            <CheckCircle2 className="mt-0.5 size-4 shrink-0" />
-          ) : (
-            <AlertCircle className="mt-0.5 size-4 shrink-0" />
-          )}
-          <div>
-            <p className="font-medium">{feedback.message}</p>
-            {feedback.sub && (
-              <p className="mt-0.5 opacity-75">{feedback.sub}</p>
-            )}
-          </div>
-        </div>
-      )}
+      <AnimatePresence>
+        {feedback && (
+          <motion.div
+            initial={{ opacity: 0, y: -6, height: 0 }}
+            animate={{ opacity: 1, y: 0, height: 'auto' }}
+            exit={{ opacity: 0, y: -4, height: 0 }}
+            transition={{ duration: 0.2, ease: 'easeOut' }}
+            className="overflow-hidden"
+          >
+            <div
+              className={cn(
+                'mt-3 flex items-start gap-2.5 rounded-lg px-4 py-3 text-sm',
+                status === 'success' && 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-300',
+                status === 'error' && 'bg-red-500/10 text-red-700 dark:text-red-300',
+              )}
+            >
+              {status === 'success' ? (
+                <CheckCircle2 className="mt-0.5 size-4 shrink-0" />
+              ) : (
+                <AlertCircle className="mt-0.5 size-4 shrink-0" />
+              )}
+              <div>
+                <p className="font-medium">{feedback.message}</p>
+                {feedback.sub && (
+                  <p className="mt-0.5 opacity-75">{feedback.sub}</p>
+                )}
+              </div>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   )
 }

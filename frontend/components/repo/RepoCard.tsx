@@ -2,13 +2,14 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
+import { motion } from 'framer-motion'
 import { GitFork, MessageSquare, Trash2, Loader2, FileCode2, Clock } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { deleteRepo } from '@/lib/api'
 import { cn } from '@/lib/utils'
 import type { Repo } from '@/types'
 
-export default function RepoCard({ repo }: { repo: Repo }) {
+export default function RepoCard({ repo, index = 0 }: { repo: Repo; index?: number }) {
   const router = useRouter()
   const [deleting, setDeleting] = useState(false)
 
@@ -28,10 +29,14 @@ export default function RepoCard({ repo }: { repo: Repo }) {
   }
 
   return (
-    <article
+    <motion.article
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.35, delay: index * 0.06, ease: [0.25, 0.1, 0.25, 1] }}
+      whileHover={{ y: -2 }}
       className={cn(
         'group relative flex flex-col gap-4 rounded-xl border border-border bg-card p-5',
-        'transition-all duration-200 hover:border-indigo-500/30 hover:bg-card/80 hover:shadow-lg hover:shadow-indigo-500/5',
+        'transition-[border-color,background-color,box-shadow] duration-200 hover:border-indigo-500/30 hover:bg-card/80 hover:shadow-lg hover:shadow-indigo-500/5',
         deleting && 'pointer-events-none opacity-40',
       )}
     >
@@ -40,7 +45,7 @@ export default function RepoCard({ repo }: { repo: Repo }) {
         onClick={handleDelete}
         disabled={deleting}
         aria-label="Delete repository"
-        className="absolute right-3 top-3 rounded-md p-1.5 text-muted-foreground opacity-0 transition-all duration-150 hover:bg-red-500/10 hover:text-red-400 group-hover:opacity-100"
+        className="absolute right-3 top-3 cursor-pointer rounded-md p-1.5 text-muted-foreground opacity-0 transition-all duration-150 hover:bg-red-500/10 hover:text-red-400 group-hover:opacity-100"
       >
         {deleting ? (
           <Loader2 className="size-3.5 animate-spin" />
@@ -82,6 +87,6 @@ export default function RepoCard({ repo }: { repo: Repo }) {
         <MessageSquare className="size-3.5" />
         Open Chat
       </Button>
-    </article>
+    </motion.article>
   )
 }
