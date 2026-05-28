@@ -20,6 +20,7 @@ export interface ChatRequest {
   repo_id: string;
   question: string;
   mode: "local" | "cloud";
+  chat_id?: string;
 }
 
 export type LLMMode = "local" | "cloud";
@@ -37,6 +38,23 @@ export interface Message {
   streaming?: boolean;
   error?: boolean;
   sources?: SourceChunk[];
+}
+
+export interface Chat {
+  id: string;
+  repo_id: string;
+  title: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface ChatMessage {
+  id: string;
+  chat_id: string;
+  role: "user" | "assistant";
+  content: string;
+  sources: SourceChunk[] | null;
+  created_at: string;
 }
 
 export type CloudProvider = "anthropic" | "openai" | "groq" | "gemini";

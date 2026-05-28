@@ -1,4 +1,4 @@
-import type { ChatRequest, IndexRequest, IndexResponse, Repo, Settings, SettingsUpdate, SourceChunk } from "@/types";
+import type { Chat, ChatMessage, ChatRequest, IndexRequest, IndexResponse, Repo, Settings, SettingsUpdate, SourceChunk } from "@/types";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
 
@@ -36,7 +36,6 @@ export function chatStream(
       const reader = res.body.getReader();
       const decoder = new TextDecoder();
       let buffer = "";
-      // Track the current SSE event name across lines (resets on blank line)
       let currentEvent = "message";
 
       while (true) {
@@ -75,7 +74,6 @@ export function chatStream(
               }
             }
           } else if (line === "") {
-            // Blank line ends an SSE event block; reset event name
             currentEvent = "message";
           }
         }
@@ -106,6 +104,64 @@ export async function deleteRepo(repoId: string): Promise<{ status: string }> {
   }
   return res.json() as Promise<{ status: string }>;
 }
+
+// ---------------------------------------------------------------------------
+// Chat session API
+// ---------------------------------------------------------------------------
+
+export async function listChats(repoId: string): Promise<Chat[]> {
+  const res = await fetch(`${API_BASE}/repos/${encodeURIComponent(repoId)}/chats`);
+  if (!res.ok) {
+    throw new Error(`List chats failed: ${res.status} ${await res.text()}`);
+  }
+  return res.json() as Promise<Chat[]>;
+}
+
+export async function createChat(repoId: string, title = "New Chat"): Promise<Chat> {
+  const res = await fetch(`${API_BASE}/repos/${encodeURIComponent(repoId)}/chats`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ title }),
+  });
+  if (!res.ok) {
+    throw new Error(`Create chat failed: ${res.status} ${await res.text()}`);
+  }
+  return res.json() as Promise<Chat>;
+}
+
+export async function renameChat(chatId: string, title: string): Promise<Chat> {
+  const res = await fetch(`${API_BASE}/chats/${encodeURIComponent(chatId)}`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ title }),
+  });
+  if (!res.ok) {
+    throw new Error(`Rename chat failed: ${res.status} ${await res.text()}`);
+  }
+  return res.json() as Promise<Chat>;
+}
+
+export async function deleteChatSession(chatId: string): Promise<{ status: string }> {
+  const res = await fetch(`${API_BASE}/chats/${encodeURIComponent(chatId)}`, {
+    method: "DELETE",
+  });
+  if (!res.ok) {
+    throw new Error(`Delete chat failed: ${res.status} ${await res.text()}`);
+  }
+  return res.json() as Promise<{ status: string }>;
+}
+
+export async function getChatMessages(chatId: string): Promise<ChatMessage[]> {
+  const res = await fetch(`${API_BASE}/chats/${encodeURIComponent(chatId)}/messages`);
+  if (!res.ok) {
+    throw new Error(`Get messages failed: ${res.status} ${await res.text()}`);
+  }
+  return res.json() as Promise<ChatMessage[]>;
+}
+
+// ---------------------------------------------------------------------------
+// Settings API
+// ---------------------------------------------------------------------------
 
 export async function getSettings(): Promise<Settings> {
   const res = await fetch(`${API_BASE}/settings`);

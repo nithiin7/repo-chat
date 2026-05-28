@@ -1,27 +1,30 @@
-import { notFound } from 'next/navigation'
-import { listRepos } from '@/lib/api'
-import ChatWindow from '@/components/chat/ChatWindow'
-import type { Repo } from '@/types'
+import { redirect } from 'next/navigation'
+import { createChat, listChats } from '@/lib/api'
 
 export const dynamic = 'force-dynamic'
 
-export default async function ChatPage({
+export default async function ChatIndexPage({
   params,
 }: {
   params: Promise<{ repo_id: string }>
 }) {
   const { repo_id } = await params
 
-  let repo: Repo | null = null
+  // Resolve the target chat ID *before* calling redirect(), because Next.js
+  // redirect() throws a special error that would be swallowed by a catch block.
+  let targetChatId: string | null = null
+
   try {
-    const repos = await listRepos()
-    repo = repos.find((r) => r.repo_id === repo_id) ?? null
+    const chats = await listChats(repo_id)
+    if (chats.length > 0) {
+      targetChatId = chats[0].id
+    } else {
+      const chat = await createChat(repo_id)
+      targetChatId = chat.id
+    }
   } catch {
-    // Backend unreachable — render with null repo (ChatWindow handles gracefully)
+    // Backend unreachable
   }
 
-  // Hard 404 only if the backend confirms the repo list is available but this ID is absent
-  if (repo === null && repo_id === '') notFound()
-
-  return <ChatWindow repo={repo} repoId={repo_id} />
+  redirect(targetChatId ? `/chat/${repo_id}/${targetChatId}` : '/')
 }

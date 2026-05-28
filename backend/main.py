@@ -3,10 +3,15 @@ FastAPI application entry point — CodeLens API.
 
 Routes
 ------
-POST   /index              Fetch + index a GitHub or Bitbucket repository.
-POST   /chat               Stream an SSE answer about an indexed repo.
-GET    /repos              List all indexed repositories.
-DELETE /repos/{repo_id}    Remove a repo's index, source tree, and metadata.
+POST   /index                       Fetch + index a GitHub or Bitbucket repository.
+POST   /chat                        Stream an SSE answer about an indexed repo.
+GET    /repos                       List all indexed repositories.
+DELETE /repos/{repo_id}             Remove a repo's index, source tree, and metadata.
+GET    /repos/{repo_id}/chats       List saved chats for a repo.
+POST   /repos/{repo_id}/chats       Create a new chat session for a repo.
+PATCH  /chats/{chat_id}             Rename a chat.
+DELETE /chats/{chat_id}             Delete a chat and all its messages.
+GET    /chats/{chat_id}/messages    Return saved messages for a chat.
 
 SSE token format
 ----------------
@@ -37,6 +42,7 @@ from backend.core.fetcher import FetchResult, RepoFetchError, fetch_repo
 from backend.core.indexer import build_index, delete_index
 from backend.core.llm import LLMError, LLMMode, stream_answer
 from backend.core.retriever import SourceChunk, retrieve
+from backend import db
 
 logger = logging.getLogger(__name__)
 
@@ -58,6 +64,7 @@ class ChatRequest(BaseModel):
     repo_id: str
     question: str
     mode: LLMMode = LLMMode.LOCAL
+    chat_id: str | None = None
 
 
 class RepoInfo(BaseModel):
@@ -66,6 +73,31 @@ class RepoInfo(BaseModel):
     url: str
     indexed_at: str
     file_count: int
+
+
+class ChatInfo(BaseModel):
+    id: str
+    repo_id: str
+    title: str
+    created_at: str
+    updated_at: str
+
+
+class CreateChatRequest(BaseModel):
+    title: str = "New Chat"
+
+
+class RenameChatRequest(BaseModel):
+    title: str
+
+
+class ChatMessageInfo(BaseModel):
+    id: str
+    chat_id: str
+    role: str
+    content: str
+    sources: list | None = None
+    created_at: str
 
 
 class SettingsView(BaseModel):
@@ -111,6 +143,11 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+
+@app.on_event("startup")
+async def startup():
+    db.init_db()
 
 
 # ---------------------------------------------------------------------------
@@ -207,6 +244,9 @@ async def chat(body: ChatRequest):
     """
     Stream an SSE response answering body.question about body.repo_id.
 
+    If body.chat_id is provided, the user question and complete assistant
+    response are persisted to the SQLite database.
+
     Token format — each event is one of:
         data: "<token>"\n\n        raw JSON-encoded string
         data: [DONE]\n\n           stream finished successfully
@@ -219,30 +259,49 @@ async def chat(body: ChatRequest):
             detail=f"Repo '{body.repo_id}' not indexed. Call POST /index first.",
         )
 
+    # Persist user message and auto-title the chat before streaming.
+    if body.chat_id:
+        await asyncio.to_thread(db.save_message, body.chat_id, "user", body.question)
+        await asyncio.to_thread(db.set_chat_title_if_default, body.chat_id, body.question)
+
     async def event_stream() -> AsyncGenerator[str, None]:
+        accumulated: list[str] = []
+        saved_sources: list | None = None
         try:
             # Retrieval is synchronous (vector search) — off the event loop.
             source_chunks: list[SourceChunk] = await asyncio.to_thread(
                 retrieve, body.repo_id, body.question
             )
+            saved_sources = source_chunks
 
             # Emit sources before streaming tokens so the UI can show them.
             yield f"event: sources\ndata: {json.dumps(source_chunks)}\n\n"
 
             text_chunks = [sc["chunk"] for sc in source_chunks]
             async for token in stream_answer(body.question, text_chunks, body.mode):
+                accumulated.append(token)
                 # JSON-encode so embedded newlines don't break SSE framing.
                 yield f"data: {json.dumps(token)}\n\n"
 
         except LLMError as exc:
             logger.warning("LLM error for repo '%s': %s", body.repo_id, exc)
             yield f"data: [ERROR] {exc}\n\n"
-        except Exception as exc:
+        except Exception:
             logger.exception(
                 "Unexpected error in /chat for repo '%s'", body.repo_id
             )
             yield f"data: [ERROR] Internal server error.\n\n"
         finally:
+            # Persist the complete assistant response if we have a chat session.
+            if body.chat_id and accumulated:
+                full_response = "".join(accumulated)
+                await asyncio.to_thread(
+                    db.save_message,
+                    body.chat_id,
+                    "assistant",
+                    full_response,
+                    saved_sources,
+                )
             yield "data: [DONE]\n\n"
 
     return StreamingResponse(
@@ -277,7 +336,8 @@ async def list_repos():
 @app.delete("/repos/{repo_id}")
 async def delete_repo(repo_id: str):
     """
-    Remove a repo's ChromaDB collection, cloned source tree, and metadata entry.
+    Remove a repo's ChromaDB collection, cloned source tree, metadata entry,
+    and all saved chats/messages.
     """
     metadata = _read_metadata()
     if repo_id not in metadata:
@@ -296,11 +356,85 @@ async def delete_repo(repo_id: str):
     if repo_dir.exists():
         await asyncio.to_thread(shutil.rmtree, str(repo_dir), True)
 
+    # Remove all saved chats for this repo.
+    await asyncio.to_thread(db.delete_chats_for_repo, repo_id)
+
     # Update metadata.
     del metadata[repo_id]
     _write_metadata(metadata)
 
     return {"status": "deleted", "repo_id": repo_id}
+
+
+# ---------------------------------------------------------------------------
+# GET /repos/{repo_id}/chats
+# ---------------------------------------------------------------------------
+
+@app.get("/repos/{repo_id}/chats", response_model=list[ChatInfo])
+async def list_repo_chats(repo_id: str):
+    """Return all chats for a repo, sorted newest first."""
+    chats = await asyncio.to_thread(db.list_chats, repo_id)
+    return [ChatInfo(**c) for c in chats]
+
+
+# ---------------------------------------------------------------------------
+# POST /repos/{repo_id}/chats
+# ---------------------------------------------------------------------------
+
+@app.post("/repos/{repo_id}/chats", response_model=ChatInfo)
+async def create_repo_chat(repo_id: str, body: CreateChatRequest = CreateChatRequest()):
+    """Create a new chat session for a repo."""
+    metadata = _read_metadata()
+    if repo_id not in metadata:
+        raise HTTPException(
+            status_code=404,
+            detail=f"Repo '{repo_id}' not indexed.",
+        )
+    chat = await asyncio.to_thread(db.create_chat, repo_id, body.title)
+    return ChatInfo(**chat)
+
+
+# ---------------------------------------------------------------------------
+# PATCH /chats/{chat_id}
+# ---------------------------------------------------------------------------
+
+@app.patch("/chats/{chat_id}", response_model=ChatInfo)
+async def rename_chat(chat_id: str, body: RenameChatRequest):
+    """Rename a chat."""
+    chat = await asyncio.to_thread(db.get_chat, chat_id)
+    if not chat:
+        raise HTTPException(status_code=404, detail=f"Chat '{chat_id}' not found.")
+    await asyncio.to_thread(db.rename_chat, chat_id, body.title)
+    updated = await asyncio.to_thread(db.get_chat, chat_id)
+    return ChatInfo(**updated)
+
+
+# ---------------------------------------------------------------------------
+# DELETE /chats/{chat_id}
+# ---------------------------------------------------------------------------
+
+@app.delete("/chats/{chat_id}")
+async def delete_chat(chat_id: str):
+    """Delete a chat and all its messages."""
+    chat = await asyncio.to_thread(db.get_chat, chat_id)
+    if not chat:
+        raise HTTPException(status_code=404, detail=f"Chat '{chat_id}' not found.")
+    await asyncio.to_thread(db.delete_chat, chat_id)
+    return {"status": "deleted", "chat_id": chat_id}
+
+
+# ---------------------------------------------------------------------------
+# GET /chats/{chat_id}/messages
+# ---------------------------------------------------------------------------
+
+@app.get("/chats/{chat_id}/messages", response_model=list[ChatMessageInfo])
+async def get_chat_messages(chat_id: str):
+    """Return all messages for a chat in chronological order."""
+    chat = await asyncio.to_thread(db.get_chat, chat_id)
+    if not chat:
+        raise HTTPException(status_code=404, detail=f"Chat '{chat_id}' not found.")
+    messages = await asyncio.to_thread(db.list_messages, chat_id)
+    return [ChatMessageInfo(**m) for m in messages]
 
 
 # ---------------------------------------------------------------------------
