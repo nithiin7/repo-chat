@@ -35,7 +35,7 @@ from backend.config import get_settings
 from backend.core.fetcher import FetchResult, RepoFetchError, fetch_repo
 from backend.core.indexer import build_index, delete_index
 from backend.core.llm import LLMError, LLMMode, stream_answer
-from backend.core.retriever import retrieve
+from backend.core.retriever import SourceChunk, retrieve
 
 logger = logging.getLogger(__name__)
 
@@ -191,11 +191,15 @@ async def chat(body: ChatRequest):
     async def event_stream() -> AsyncGenerator[str, None]:
         try:
             # Retrieval is synchronous (vector search) — off the event loop.
-            chunks: list[str] = await asyncio.to_thread(
+            source_chunks: list[SourceChunk] = await asyncio.to_thread(
                 retrieve, body.repo_id, body.question
             )
 
-            async for token in stream_answer(body.question, chunks, body.mode):
+            # Emit sources before streaming tokens so the UI can show them.
+            yield f"event: sources\ndata: {json.dumps(source_chunks)}\n\n"
+
+            text_chunks = [sc["chunk"] for sc in source_chunks]
+            async for token in stream_answer(body.question, text_chunks, body.mode):
                 # JSON-encode so embedded newlines don't break SSE framing.
                 yield f"data: {json.dumps(token)}\n\n"
 
