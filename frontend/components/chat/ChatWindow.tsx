@@ -279,7 +279,7 @@ export default function ChatWindow({ repo, repoId }: ChatWindowProps) {
               type="button"
               onClick={handleStop}
               size="icon-lg"
-              className="shrink-0 border border-border bg-card text-foreground hover:bg-muted"
+              className="h-auto w-9 self-stretch border border-border bg-card text-foreground hover:bg-muted"
               aria-label="Stop generating"
             >
               <Square className="size-4 fill-current" />
@@ -290,7 +290,7 @@ export default function ChatWindow({ repo, repoId }: ChatWindowProps) {
               size="icon-lg"
               disabled={!input.trim()}
               aria-label="Send message"
-              className="shrink-0"
+              className="h-auto w-9 self-stretch"
             >
               <SendHorizontal className="size-4" />
             </Button>

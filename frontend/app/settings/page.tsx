@@ -5,6 +5,7 @@ import Link from 'next/link'
 import { ArrowLeft, Cpu, Cloud, Eye, EyeOff, Check, AlertCircle, RefreshCw } from 'lucide-react'
 import { NavBar } from '@/components/ui/nav-bar'
 import { Dropdown } from '@/components/ui/dropdown'
+import { Skeleton } from '@/components/ui/skeleton'
 import { getSettings, updateSettings, getOllamaModels } from '@/lib/api'
 import type { CloudProvider, Settings, SettingsUpdate } from '@/types'
 import { cn } from '@/lib/utils'
@@ -117,11 +118,7 @@ export default function SettingsPage() {
 
       {/* ── Content ── */}
       <main className="mx-auto w-full max-w-screen-2xl flex-1 px-4 py-10 sm:px-6 lg:px-10">
-        {loading && (
-          <div className="flex items-center justify-center py-24 text-sm text-muted-foreground">
-            Loading settings…
-          </div>
-        )}
+        {loading && <SettingsSkeleton />}
 
         {loadError && (
           <div className="flex items-center justify-center py-24">
@@ -353,6 +350,80 @@ export default function SettingsPage() {
         )}
       </main>
     </div>
+  )
+}
+
+// ---------------------------------------------------------------------------
+// Skeleton
+// ---------------------------------------------------------------------------
+
+function SettingsSkeleton() {
+  return (
+    <>
+      <div className="mb-8 space-y-2">
+        <Skeleton className="h-7 w-24" />
+        <Skeleton className="h-4 w-96 max-w-full" />
+      </div>
+
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-2 xl:gap-8">
+        {/* Local (Ollama) card */}
+        <div className="flex flex-col rounded-xl border border-border bg-card p-6">
+          <div className="mb-6 flex items-center gap-3">
+            <Skeleton className="size-8 rounded-lg" />
+            <div className="space-y-1.5">
+              <Skeleton className="h-4 w-28" />
+              <Skeleton className="h-3 w-56" />
+            </div>
+          </div>
+          <div className="space-y-1.5">
+            <Skeleton className="h-3 w-24" />
+            <div className="flex gap-2">
+              <Skeleton className="h-9 flex-1 rounded-md" />
+              <Skeleton className="h-9 w-10 rounded-md" />
+            </div>
+          </div>
+        </div>
+
+        {/* Cloud card */}
+        <div className="flex flex-col rounded-xl border border-border bg-card p-6">
+          <div className="mb-6 flex items-center gap-3">
+            <Skeleton className="size-8 rounded-lg" />
+            <div className="space-y-1.5">
+              <Skeleton className="h-4 w-12" />
+              <Skeleton className="h-3 w-56" />
+            </div>
+          </div>
+          <div className="space-y-5">
+            {/* Provider toggle */}
+            <div className="space-y-1.5">
+              <Skeleton className="h-3 w-16" />
+              <div className="flex gap-1 self-start rounded-lg border border-border bg-card p-0.5">
+                <Skeleton className="h-7 w-20 rounded-md" />
+                <Skeleton className="h-7 w-16 rounded-md" />
+                <Skeleton className="h-7 w-12 rounded-md" />
+                <Skeleton className="h-7 w-16 rounded-md" />
+              </div>
+            </div>
+            {/* Provider fields */}
+            <div className="space-y-3 rounded-lg border border-border p-4">
+              <div className="space-y-1.5">
+                <Skeleton className="h-3 w-12" />
+                <Skeleton className="h-9 w-full rounded-md" />
+              </div>
+              <div className="space-y-1.5">
+                <Skeleton className="h-3 w-14" />
+                <Skeleton className="h-9 w-full rounded-md" />
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Save bar */}
+      <div className="mt-8 border-t border-border pt-6">
+        <Skeleton className="h-10 w-32 rounded-lg" />
+      </div>
+    </>
   )
 }
 
