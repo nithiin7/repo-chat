@@ -8,13 +8,13 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from backend.persistence import db
+from backend.persistence import init_db
 from backend.routes import chats, repos, settings
 
 
 @asynccontextmanager
 async def lifespan(_: FastAPI):
-    db.init_db()
+    init_db()
     yield
 
 
