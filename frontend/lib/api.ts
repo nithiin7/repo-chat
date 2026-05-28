@@ -1,4 +1,4 @@
-import type { Chat, ChatMessage, ChatRequest, IndexRequest, IndexResponse, Repo, RepoStatus, Settings, SettingsUpdate, SourceChunk } from "@/types";
+import type { Chat, ChatMessage, ChatRequest, EmbeddingModel, IndexRequest, IndexResponse, Repo, RepoStatus, Settings, SettingsUpdate, SourceChunk } from "@/types";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
 
@@ -208,4 +208,23 @@ export async function getOllamaModels(): Promise<string[]> {
   if (!res.ok) return [];
   const data = (await res.json()) as { models: string[] };
   return data.models;
+}
+
+export async function getEmbeddingModels(): Promise<EmbeddingModel[]> {
+  const res = await fetch(`${API_BASE}/settings/embedding/models`);
+  if (!res.ok) return [];
+  const data = (await res.json()) as { models: EmbeddingModel[] };
+  return data.models;
+}
+
+export async function pullEmbeddingModel(model: string): Promise<{ status: string; model: string }> {
+  const res = await fetch(`${API_BASE}/settings/embedding/pull`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ model }),
+  });
+  if (!res.ok) {
+    throw new Error(`Pull failed: ${res.status} ${await res.text()}`);
+  }
+  return res.json() as Promise<{ status: string; model: string }>;
 }

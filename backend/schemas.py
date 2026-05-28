@@ -80,6 +80,7 @@ class SettingsView(BaseModel):
     has_groq_key: bool
     gemini_model: str
     has_gemini_key: bool
+    embedding_model: str
 
 
 class SettingsUpdate(BaseModel):
@@ -94,3 +95,8 @@ class SettingsUpdate(BaseModel):
     groq_api_key: str | None = None
     gemini_model: str | None = None
     gemini_api_key: str | None = None
+    embedding_model: str | None = None
+
+
+class EmbeddingPullRequest(BaseModel):
+    model: str

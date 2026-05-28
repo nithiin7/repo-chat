@@ -2,9 +2,17 @@ import httpx
 from fastapi import APIRouter, HTTPException
 
 from backend.config import get_settings, save_settings_overlay
-from backend.schemas import SettingsUpdate, SettingsView
+from backend.schemas import EmbeddingPullRequest, SettingsUpdate, SettingsView
 
 router = APIRouter()
+
+_CURATED_EMBEDDING_MODELS = [
+    {"id": "BAAI/bge-small-en-v1.5", "name": "BGE Small (default)", "size": "~130 MB"},
+    {"id": "BAAI/bge-base-en-v1.5", "name": "BGE Base", "size": "~440 MB"},
+    {"id": "BAAI/bge-large-en-v1.5", "name": "BGE Large", "size": "~1.3 GB"},
+    {"id": "sentence-transformers/all-MiniLM-L6-v2", "name": "all-MiniLM-L6-v2", "size": "~90 MB"},
+    {"id": "sentence-transformers/all-mpnet-base-v2", "name": "all-mpnet-base-v2", "size": "~420 MB"},
+]
 
 
 def _build_settings_view() -> SettingsView:
@@ -22,6 +30,7 @@ def _build_settings_view() -> SettingsView:
         has_groq_key=bool(s.groq_api_key),
         gemini_model=s.gemini_model,
         has_gemini_key=bool(s.gemini_api_key),
+        embedding_model=s.embedding_model,
     )
 
 
@@ -78,3 +87,22 @@ async def update_settings(body: SettingsUpdate):
         save_settings_overlay(updates)
 
     return _build_settings_view()
+
+
+@router.get("/settings/embedding/models")
+async def get_embedding_models():
+    return {"models": _CURATED_EMBEDDING_MODELS}
+
+
+@router.post("/settings/embedding/pull")
+async def pull_embedding_model(body: EmbeddingPullRequest):
+    """Save the embedding model, clear the LRU cache, and warm it up (triggers download)."""
+    from backend.core.indexer import get_embed_model
+
+    save_settings_overlay({"embedding_model": body.model})
+    get_embed_model.cache_clear()
+    try:
+        get_embed_model()
+        return {"status": "ready", "model": body.model}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to load model '{body.model}': {e}")

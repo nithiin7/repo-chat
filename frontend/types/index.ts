@@ -83,6 +83,7 @@ export interface Settings {
   has_groq_key: boolean;
   gemini_model: string;
   has_gemini_key: boolean;
+  embedding_model: string;
 }
 
 export interface SettingsUpdate {
@@ -97,4 +98,11 @@ export interface SettingsUpdate {
   groq_api_key?: string;
   gemini_model?: string;
   gemini_api_key?: string;
+  embedding_model?: string;
+}
+
+export interface EmbeddingModel {
+  id: string;
+  name: string;
+  size: string;
 }

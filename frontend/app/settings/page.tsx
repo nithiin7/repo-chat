@@ -2,12 +2,12 @@
 
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
-import { ArrowLeft, Cpu, Cloud, Eye, EyeOff, Check, AlertCircle, RefreshCw } from 'lucide-react'
+import { ArrowLeft, Cpu, Cloud, Eye, EyeOff, Check, AlertCircle, RefreshCw, Database, Download } from 'lucide-react'
 import { NavBar } from '@/components/ui/nav-bar'
 import { Dropdown } from '@/components/ui/dropdown'
 import { Skeleton } from '@/components/ui/skeleton'
-import { getSettings, updateSettings, getOllamaModels } from '@/lib/api'
-import type { CloudProvider, Settings, SettingsUpdate } from '@/types'
+import { getSettings, updateSettings, getOllamaModels, getEmbeddingModels, pullEmbeddingModel } from '@/lib/api'
+import type { CloudProvider, EmbeddingModel, Settings, SettingsUpdate } from '@/types'
 import { cn } from '@/lib/utils'
 
 type SaveState = 'idle' | 'saving' | 'saved' | 'error'
@@ -38,10 +38,16 @@ export default function SettingsPage() {
   const [saveState, setSaveState] = useState<SaveState>('idle')
   const [saveError, setSaveError] = useState<string | null>(null)
 
+  // Embedding model state
+  const [embeddingModels, setEmbeddingModels] = useState<EmbeddingModel[]>([])
+  const [embeddingModel, setEmbeddingModel] = useState('')
+  const [pullState, setPullState] = useState<'idle' | 'pulling' | 'done' | 'error'>('idle')
+  const [pullError, setPullError] = useState<string | null>(null)
+
   useEffect(() => {
     async function load() {
       try {
-        const [s, models] = await Promise.all([getSettings(), getOllamaModels()])
+        const [s, models, embedModels] = await Promise.all([getSettings(), getOllamaModels(), getEmbeddingModels()])
         setSettings(s)
         setOllamaModels(models)
         setOllamaModel(s.ollama_model)
@@ -51,6 +57,8 @@ export default function SettingsPage() {
         setOpenaiBaseUrl(s.openai_base_url)
         setGroqModel(s.groq_model)
         setGeminiModel(s.gemini_model)
+        setEmbeddingModels(embedModels)
+        setEmbeddingModel(s.embedding_model)
       } catch {
         setLoadError('Could not reach the backend. Make sure it is running.')
       } finally {
@@ -94,6 +102,21 @@ export default function SettingsPage() {
     } catch (err) {
       setSaveError(err instanceof Error ? err.message : 'Failed to save settings.')
       setSaveState('error')
+    }
+  }
+
+  async function handlePull() {
+    if (!embeddingModel) return
+    setPullState('pulling')
+    setPullError(null)
+    try {
+      await pullEmbeddingModel(embeddingModel)
+      setSettings(s => s ? { ...s, embedding_model: embeddingModel } : s)
+      setPullState('done')
+      setTimeout(() => setPullState('idle'), 3000)
+    } catch (err) {
+      setPullError(err instanceof Error ? err.message : 'Failed to download model.')
+      setPullState('error')
     }
   }
 
@@ -319,6 +342,80 @@ export default function SettingsPage() {
                       </Field>
                     </div>
                   )}
+                </div>
+              </Section>
+            </div>
+
+            {/* ── Embeddings ── */}
+            <div className="mt-6">
+              <Section
+                icon={<Database className="size-4 text-violet-400" />}
+                title="Embeddings"
+                description="HuggingFace model used to index and search code. Changing the model requires re-indexing all repos."
+              >
+                <div className="space-y-4">
+                  <Field label="Model">
+                    <div className="flex gap-2">
+                      {embeddingModels.length > 0 ? (
+                        <Dropdown
+                          className="flex-1"
+                          options={[
+                            ...embeddingModels.map(m => ({ value: m.id, label: `${m.name} (${m.size})` })),
+                            ...(embeddingModel && !embeddingModels.find(m => m.id === embeddingModel)
+                              ? [{ value: embeddingModel, label: embeddingModel }]
+                              : []),
+                          ]}
+                          value={embeddingModel}
+                          onChange={setEmbeddingModel}
+                        />
+                      ) : (
+                        <input
+                          type="text"
+                          value={embeddingModel}
+                          onChange={e => setEmbeddingModel(e.target.value)}
+                          placeholder="e.g. BAAI/bge-small-en-v1.5"
+                          className="flex-1 rounded-md border border-border bg-background px-3 py-2 text-sm placeholder:text-muted-foreground/50 focus:outline-none focus:ring-1 focus:ring-ring"
+                        />
+                      )}
+                      <button
+                        type="button"
+                        onClick={handlePull}
+                        disabled={pullState === 'pulling' || !embeddingModel}
+                        title="Download and activate model"
+                        className={cn(
+                          'flex items-center gap-1.5 rounded-md border px-3 py-2 text-sm font-medium transition-colors disabled:opacity-60',
+                          pullState === 'done'
+                            ? 'border-emerald-500/30 bg-emerald-500/10 text-emerald-400'
+                            : 'border-border text-muted-foreground hover:bg-muted hover:text-foreground',
+                        )}
+                      >
+                        {pullState === 'pulling' ? (
+                          <RefreshCw className="size-3.5 animate-spin" />
+                        ) : pullState === 'done' ? (
+                          <Check className="size-3.5" />
+                        ) : (
+                          <Download className="size-3.5" />
+                        )}
+                        {pullState === 'pulling' ? 'Downloading…' : pullState === 'done' ? 'Ready' : 'Download & Activate'}
+                      </button>
+                    </div>
+                    {settings && embeddingModel !== settings.embedding_model && pullState === 'idle' && (
+                      <p className="mt-1.5 text-xs text-amber-400">
+                        After activating, re-index all repos for the new model to take effect.
+                      </p>
+                    )}
+                    {pullState === 'error' && pullError && (
+                      <p className="mt-1.5 flex items-center gap-1 text-xs text-destructive">
+                        <AlertCircle className="size-3" />
+                        {pullError}
+                      </p>
+                    )}
+                    {settings && embeddingModel === settings.embedding_model && (
+                      <p className="mt-1.5 text-xs text-muted-foreground/70">
+                        Active model: <span className="font-mono">{settings.embedding_model}</span>
+                      </p>
+                    )}
+                  </Field>
                 </div>
               </Section>
             </div>
