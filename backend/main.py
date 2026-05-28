@@ -78,6 +78,10 @@ class SettingsView(BaseModel):
     openai_model: str
     openai_base_url: str
     has_openai_key: bool
+    groq_model: str
+    has_groq_key: bool
+    gemini_model: str
+    has_gemini_key: bool
 
 
 class SettingsUpdate(BaseModel):
@@ -88,6 +92,10 @@ class SettingsUpdate(BaseModel):
     openai_model: str | None = None
     openai_base_url: str | None = None
     openai_api_key: str | None = None
+    groq_model: str | None = None
+    groq_api_key: str | None = None
+    gemini_model: str | None = None
+    gemini_api_key: str | None = None
 
 
 # ---------------------------------------------------------------------------
@@ -336,6 +344,10 @@ async def get_settings_view():
         openai_model=s.openai_model,
         openai_base_url=s.openai_base_url,
         has_openai_key=bool(s.openai_api_key),
+        groq_model=s.groq_model,
+        has_groq_key=bool(s.groq_api_key),
+        gemini_model=s.gemini_model,
+        has_gemini_key=bool(s.gemini_api_key),
     )
 
 
@@ -351,8 +363,8 @@ async def update_settings(body: SettingsUpdate):
     if body.ollama_model is not None:
         updates["ollama_model"] = body.ollama_model
     if body.cloud_provider is not None:
-        if body.cloud_provider not in ("anthropic", "openai"):
-            raise HTTPException(status_code=422, detail="cloud_provider must be 'anthropic' or 'openai'")
+        if body.cloud_provider not in ("anthropic", "openai", "groq", "gemini"):
+            raise HTTPException(status_code=422, detail="cloud_provider must be 'anthropic', 'openai', 'groq', or 'gemini'")
         updates["cloud_provider"] = body.cloud_provider
     if body.anthropic_model is not None:
         updates["anthropic_model"] = body.anthropic_model
@@ -364,6 +376,14 @@ async def update_settings(body: SettingsUpdate):
         updates["openai_base_url"] = body.openai_base_url
     if body.openai_api_key is not None:
         updates["openai_api_key"] = body.openai_api_key
+    if body.groq_model is not None:
+        updates["groq_model"] = body.groq_model
+    if body.groq_api_key is not None:
+        updates["groq_api_key"] = body.groq_api_key
+    if body.gemini_model is not None:
+        updates["gemini_model"] = body.gemini_model
+    if body.gemini_api_key is not None:
+        updates["gemini_api_key"] = body.gemini_api_key
 
     if updates:
         save_settings_overlay(updates)
@@ -378,4 +398,8 @@ async def update_settings(body: SettingsUpdate):
         openai_model=s.openai_model,
         openai_base_url=s.openai_base_url,
         has_openai_key=bool(s.openai_api_key),
+        groq_model=s.groq_model,
+        has_groq_key=bool(s.groq_api_key),
+        gemini_model=s.gemini_model,
+        has_gemini_key=bool(s.gemini_api_key),
     )

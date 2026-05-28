@@ -14,7 +14,7 @@ class Settings(BaseSettings):
     ollama_model: str = "qwen3:4b"
 
     # LLM — Cloud provider selection
-    cloud_provider: str = "anthropic"  # "anthropic" | "openai"
+    cloud_provider: str = "anthropic"  # "anthropic" | "openai" | "groq" | "gemini"
 
     # LLM — Anthropic
     anthropic_api_key: str = ""
@@ -24,6 +24,14 @@ class Settings(BaseSettings):
     openai_api_key: str = ""
     openai_base_url: str = "https://api.openai.com/v1"
     openai_model: str = "gpt-4o"
+
+    # LLM — Groq
+    groq_api_key: str = ""
+    groq_model: str = "llama-3.3-70b-versatile"
+
+    # LLM — Google Gemini
+    gemini_api_key: str = ""
+    gemini_model: str = "gemini-2.0-flash"
 
     # Embeddings
     embedding_model: str = "BAAI/bge-small-en-v1.5"

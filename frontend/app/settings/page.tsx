@@ -27,6 +27,12 @@ export default function SettingsPage() {
   const [openaiBaseUrl, setOpenaiBaseUrl] = useState('')
   const [openaiKey, setOpenaiKey] = useState('')
   const [showOpenaiKey, setShowOpenaiKey] = useState(false)
+  const [groqModel, setGroqModel] = useState('')
+  const [groqKey, setGroqKey] = useState('')
+  const [showGroqKey, setShowGroqKey] = useState(false)
+  const [geminiModel, setGeminiModel] = useState('')
+  const [geminiKey, setGeminiKey] = useState('')
+  const [showGeminiKey, setShowGeminiKey] = useState(false)
 
   const [saveState, setSaveState] = useState<SaveState>('idle')
   const [saveError, setSaveError] = useState<string | null>(null)
@@ -42,6 +48,8 @@ export default function SettingsPage() {
         setAnthropicModel(s.anthropic_model)
         setOpenaiModel(s.openai_model)
         setOpenaiBaseUrl(s.openai_base_url)
+        setGroqModel(s.groq_model)
+        setGeminiModel(s.gemini_model)
       } catch {
         setLoadError('Could not reach the backend. Make sure it is running.')
       } finally {
@@ -66,14 +74,20 @@ export default function SettingsPage() {
         anthropic_model: anthropicModel || undefined,
         openai_model: openaiModel || undefined,
         openai_base_url: openaiBaseUrl || undefined,
+        groq_model: groqModel || undefined,
+        gemini_model: geminiModel || undefined,
       }
       if (anthropicKey) update.anthropic_api_key = anthropicKey
       if (openaiKey) update.openai_api_key = openaiKey
+      if (groqKey) update.groq_api_key = groqKey
+      if (geminiKey) update.gemini_api_key = geminiKey
 
       const updated = await updateSettings(update)
       setSettings(updated)
       setAnthropicKey('')
       setOpenaiKey('')
+      setGroqKey('')
+      setGeminiKey('')
       setSaveState('saved')
       setTimeout(() => setSaveState('idle'), 3000)
     } catch (err) {
@@ -185,8 +199,8 @@ export default function SettingsPage() {
                 <div className="space-y-5">
                   {/* Provider toggle */}
                   <Field label="Provider">
-                    <div className="flex items-center rounded-lg border border-border bg-card p-0.5 gap-0.5 self-start">
-                      {(['anthropic', 'openai'] as CloudProvider[]).map(p => (
+                    <div className="flex items-center rounded-lg border border-border bg-card p-0.5 gap-0.5 self-start flex-wrap">
+                      {(['anthropic', 'openai', 'groq', 'gemini'] as CloudProvider[]).map(p => (
                         <button
                           key={p}
                           type="button"
@@ -198,7 +212,7 @@ export default function SettingsPage() {
                               : 'text-muted-foreground hover:text-foreground',
                           )}
                         >
-                          {p === 'anthropic' ? 'Anthropic' : 'OpenAI'}
+                          {p === 'anthropic' ? 'Anthropic' : p === 'openai' ? 'OpenAI' : p === 'groq' ? 'Groq' : 'Gemini'}
                         </button>
                       ))}
                     </div>
@@ -256,6 +270,54 @@ export default function SettingsPage() {
                           show={showOpenaiKey}
                           onToggleShow={() => setShowOpenaiKey(v => !v)}
                           placeholder={settings?.has_openai_key ? '••••••••  (leave blank to keep)' : 'sk-…'}
+                        />
+                      </Field>
+                    </div>
+                  )}
+
+                  {/* Groq fields */}
+                  {cloudProvider === 'groq' && (
+                    <div className="space-y-3 rounded-lg border border-border p-4">
+                      <Field label="Model">
+                        <input
+                          type="text"
+                          value={groqModel}
+                          onChange={e => setGroqModel(e.target.value)}
+                          placeholder="llama-3.3-70b-versatile"
+                          className="flex-1 rounded-md border border-border bg-background px-3 py-2 text-sm placeholder:text-muted-foreground/50 focus:outline-none focus:ring-1 focus:ring-ring"
+                        />
+                      </Field>
+                      <Field label="API key" badge={settings?.has_groq_key ? <KeyBadge /> : null}>
+                        <KeyInput
+                          value={groqKey}
+                          onChange={setGroqKey}
+                          show={showGroqKey}
+                          onToggleShow={() => setShowGroqKey(v => !v)}
+                          placeholder={settings?.has_groq_key ? '••••••••  (leave blank to keep)' : 'gsk_…'}
+                        />
+                      </Field>
+                    </div>
+                  )}
+
+                  {/* Gemini fields */}
+                  {cloudProvider === 'gemini' && (
+                    <div className="space-y-3 rounded-lg border border-border p-4">
+                      <Field label="Model">
+                        <input
+                          type="text"
+                          value={geminiModel}
+                          onChange={e => setGeminiModel(e.target.value)}
+                          placeholder="gemini-2.0-flash"
+                          className="flex-1 rounded-md border border-border bg-background px-3 py-2 text-sm placeholder:text-muted-foreground/50 focus:outline-none focus:ring-1 focus:ring-ring"
+                        />
+                      </Field>
+                      <Field label="API key" badge={settings?.has_gemini_key ? <KeyBadge /> : null}>
+                        <KeyInput
+                          value={geminiKey}
+                          onChange={setGeminiKey}
+                          show={showGeminiKey}
+                          onToggleShow={() => setShowGeminiKey(v => !v)}
+                          placeholder={settings?.has_gemini_key ? '••••••••  (leave blank to keep)' : 'AIza…'}
                         />
                       </Field>
                     </div>

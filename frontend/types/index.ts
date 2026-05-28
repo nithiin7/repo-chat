@@ -39,7 +39,7 @@ export interface Message {
   sources?: SourceChunk[];
 }
 
-export type CloudProvider = "anthropic" | "openai";
+export type CloudProvider = "anthropic" | "openai" | "groq" | "gemini";
 
 export interface Settings {
   ollama_base_url: string;
@@ -50,6 +50,10 @@ export interface Settings {
   openai_model: string;
   openai_base_url: string;
   has_openai_key: boolean;
+  groq_model: string;
+  has_groq_key: boolean;
+  gemini_model: string;
+  has_gemini_key: boolean;
 }
 
 export interface SettingsUpdate {
@@ -60,4 +64,8 @@ export interface SettingsUpdate {
   openai_model?: string;
   openai_base_url?: string;
   openai_api_key?: string;
+  groq_model?: string;
+  groq_api_key?: string;
+  gemini_model?: string;
+  gemini_api_key?: string;
 }

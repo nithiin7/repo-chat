@@ -201,6 +201,102 @@ async def stream_openai(prompt: str) -> AsyncGenerator[str, None]:
 
 
 # ---------------------------------------------------------------------------
+# Cloud — Groq (OpenAI-compatible)
+# ---------------------------------------------------------------------------
+
+async def stream_groq(prompt: str) -> AsyncGenerator[str, None]:
+    settings = get_settings()
+
+    if not settings.groq_api_key:
+        raise LLMError(
+            "CLOUD mode requires GROQ_API_KEY to be configured in Settings."
+        )
+
+    client = openai.AsyncOpenAI(
+        api_key=settings.groq_api_key,
+        base_url="https://api.groq.com/openai/v1",
+    )
+
+    try:
+        stream = await client.chat.completions.create(
+            model=settings.groq_model,
+            max_tokens=2048,
+            messages=[
+                {"role": "system", "content": _SYSTEM_PROMPT},
+                {"role": "user", "content": prompt},
+            ],
+            stream=True,
+        )
+        async for chunk in stream:
+            delta = chunk.choices[0].delta.content if chunk.choices else None
+            if delta:
+                yield delta
+
+    except openai.AuthenticationError as exc:
+        raise LLMError(
+            "Groq authentication failed. Check your API key in Settings."
+        ) from exc
+    except openai.RateLimitError as exc:
+        raise LLMError("Groq rate limit reached. Please retry in a moment.") from exc
+    except openai.APIConnectionError as exc:
+        raise LLMError(
+            "Cannot reach the Groq API. Check your network connection."
+        ) from exc
+    except openai.APIStatusError as exc:
+        raise LLMError(
+            f"Groq API error {exc.status_code}: {exc.message}"
+        ) from exc
+
+
+# ---------------------------------------------------------------------------
+# Cloud — Google Gemini (OpenAI-compatible endpoint)
+# ---------------------------------------------------------------------------
+
+async def stream_gemini(prompt: str) -> AsyncGenerator[str, None]:
+    settings = get_settings()
+
+    if not settings.gemini_api_key:
+        raise LLMError(
+            "CLOUD mode requires GEMINI_API_KEY to be configured in Settings."
+        )
+
+    client = openai.AsyncOpenAI(
+        api_key=settings.gemini_api_key,
+        base_url="https://generativelanguage.googleapis.com/v1beta/openai/",
+    )
+
+    try:
+        stream = await client.chat.completions.create(
+            model=settings.gemini_model,
+            max_tokens=2048,
+            messages=[
+                {"role": "system", "content": _SYSTEM_PROMPT},
+                {"role": "user", "content": prompt},
+            ],
+            stream=True,
+        )
+        async for chunk in stream:
+            delta = chunk.choices[0].delta.content if chunk.choices else None
+            if delta:
+                yield delta
+
+    except openai.AuthenticationError as exc:
+        raise LLMError(
+            "Gemini authentication failed. Check your API key in Settings."
+        ) from exc
+    except openai.RateLimitError as exc:
+        raise LLMError("Gemini rate limit reached. Please retry in a moment.") from exc
+    except openai.APIConnectionError as exc:
+        raise LLMError(
+            "Cannot reach the Gemini API. Check your network connection."
+        ) from exc
+    except openai.APIStatusError as exc:
+        raise LLMError(
+            f"Gemini API error {exc.status_code}: {exc.message}"
+        ) from exc
+
+
+# ---------------------------------------------------------------------------
 # Public entry point
 # ---------------------------------------------------------------------------
 
@@ -222,8 +318,15 @@ async def stream_answer(
             yield token
     elif mode is LLMMode.CLOUD:
         settings = get_settings()
-        if settings.cloud_provider == "openai":
+        provider = settings.cloud_provider
+        if provider == "openai":
             async for token in stream_openai(prompt):
+                yield token
+        elif provider == "groq":
+            async for token in stream_groq(prompt):
+                yield token
+        elif provider == "gemini":
+            async for token in stream_gemini(prompt):
                 yield token
         else:
             async for token in stream_anthropic(prompt):
