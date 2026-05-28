@@ -1,6 +1,8 @@
-# CodeLens
+<p align="center">
+  <img src="frontend/public/logo.svg" alt="CodeLens" width="280"/>
+</p>
 
-**Ask natural language questions about any GitHub or Bitbucket codebase — powered by local or cloud LLMs.**
+<p align="center"><strong>Ask natural language questions about any GitHub or Bitbucket codebase — powered by local or cloud LLMs.</strong></p>
 
 Paste a repo URL. CodeLens clones it, indexes every source file into a vector store, and opens a streaming chat interface so you can explore the codebase in plain English — no manual reading required.
 
