@@ -10,6 +10,7 @@ Public surface:
 
 import json
 import logging
+import re
 from enum import Enum
 from typing import AsyncGenerator
 
@@ -299,6 +300,55 @@ async def stream_gemini(prompt: str) -> AsyncGenerator[str, None]:
 # ---------------------------------------------------------------------------
 # Public entry point
 # ---------------------------------------------------------------------------
+
+_SUGGESTIONS_PROMPT = (
+    "The following question was asked about a codebase and an answer was given. "
+    "Write exactly 3 short follow-up questions a developer might ask next. "
+    "Reply with only the 3 questions, one per line, no numbering, no bullets, no extra text.\n\n"
+    "Question: {question}\n\n"
+    "Answer: {answer}"
+)
+
+
+async def _complete(prompt: str, mode: LLMMode) -> str:
+    """Non-streaming single completion for short tasks like suggestion generation."""
+    settings = get_settings()
+    if mode is LLMMode.LOCAL:
+        url = f"{settings.ollama_base_url.rstrip('/')}/api/generate"
+        async with httpx.AsyncClient(timeout=httpx.Timeout(60.0)) as client:
+            resp = await client.post(url, json={"model": settings.ollama_model, "prompt": prompt, "stream": False})
+            return resp.json().get("response", "")
+    elif mode is LLMMode.CLOUD:
+        provider = settings.cloud_provider
+        if provider == "openai":
+            client = openai.AsyncOpenAI(api_key=settings.openai_api_key, base_url=settings.openai_base_url)
+            resp = await client.chat.completions.create(model=settings.openai_model, max_tokens=200, messages=[{"role": "user", "content": prompt}])
+            return resp.choices[0].message.content or "" if resp.choices else ""
+        elif provider == "groq":
+            client = openai.AsyncOpenAI(api_key=settings.groq_api_key, base_url="https://api.groq.com/openai/v1")
+            resp = await client.chat.completions.create(model=settings.groq_model, max_tokens=200, messages=[{"role": "user", "content": prompt}])
+            return resp.choices[0].message.content or "" if resp.choices else ""
+        elif provider == "gemini":
+            client = openai.AsyncOpenAI(api_key=settings.gemini_api_key, base_url="https://generativelanguage.googleapis.com/v1beta/openai/")
+            resp = await client.chat.completions.create(model=settings.gemini_model, max_tokens=200, messages=[{"role": "user", "content": prompt}])
+            return resp.choices[0].message.content or "" if resp.choices else ""
+        else:
+            ac = anthropic.AsyncAnthropic(api_key=settings.anthropic_api_key)
+            msg = await ac.messages.create(model=settings.anthropic_model, max_tokens=200, messages=[{"role": "user", "content": prompt}])
+            return msg.content[0].text if msg.content else ""
+    return ""
+
+
+async def generate_suggestions(question: str, answer: str, mode: LLMMode) -> list[str]:
+    """Return up to 3 follow-up question suggestions based on the completed Q&A."""
+    prompt = _SUGGESTIONS_PROMPT.format(question=question, answer=answer[:800])
+    try:
+        raw = await _complete(prompt, mode)
+    except Exception:
+        return []
+    lines = [re.sub(r'^[\d\.\-•*]+\s*', '', l).strip() for l in raw.splitlines() if l.strip()]
+    return [q for q in lines if q][:3]
+
 
 async def stream_answer(
     question: str,

@@ -47,6 +47,8 @@ export interface Message {
   streaming?: boolean;
   error?: boolean;
   sources?: SourceChunk[];
+  suggestions?: string[];
+  suggestionsLoading?: boolean;
 }
 
 export interface Chat {

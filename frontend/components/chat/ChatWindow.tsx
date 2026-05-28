@@ -132,6 +132,21 @@ export default function ChatWindow({ repo, repoId, chatId, chats: initialChats, 
             return [...prev.slice(0, -1), { ...last, sources }]
           })
         },
+        (suggestions) => {
+          setMessages((prev) => {
+            const last = prev[prev.length - 1]
+            if (!last || last.role !== 'assistant') return prev
+            return [...prev.slice(0, -1), { ...last, suggestions, suggestionsLoading: false }]
+          })
+        },
+        () => {
+          // [CONTENT_DONE]: answer text is complete, suggestions are being generated
+          setMessages((prev) => {
+            const last = prev[prev.length - 1]
+            if (!last || last.role !== 'assistant') return prev
+            return [...prev.slice(0, -1), { ...last, streaming: false, suggestionsLoading: true }]
+          })
+        },
         () => {
           setMessages((prev) => {
             const last = prev[prev.length - 1]
@@ -150,10 +165,11 @@ export default function ChatWindow({ repo, repoId, chatId, chats: initialChats, 
           cancelRef.current = null
         },
         () => {
+          // [DONE]: stream fully closed; clear any remaining loading states
           setMessages((prev) => {
             const last = prev[prev.length - 1]
             if (!last || last.role !== 'assistant') return prev
-            return [...prev.slice(0, -1), { ...last, streaming: false }]
+            return [...prev.slice(0, -1), { ...last, streaming: false, suggestionsLoading: false }]
           })
           setStreaming(false)
           cancelRef.current = null
@@ -301,7 +317,7 @@ export default function ChatWindow({ repo, repoId, chatId, chats: initialChats, 
             ) : (
               <div className="mx-auto max-w-3xl px-4 py-8">
                 {messages.map((msg) => (
-                  <MessageBubble key={msg.id} message={msg} />
+                  <MessageBubble key={msg.id} message={msg} onSuggestionClick={submit} />
                 ))}
               </div>
             )}

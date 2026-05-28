@@ -18,6 +18,8 @@ export function chatStream(
   body: ChatRequest,
   onToken: (token: string) => void,
   onSources: (sources: SourceChunk[]) => void,
+  onSuggestions: (suggestions: string[]) => void,
+  onContentDone: () => void,
   onError: (err: Event) => void,
   onDone: () => void
 ): () => void {
@@ -59,10 +61,20 @@ export function chatStream(
               } catch {
                 // Malformed sources payload — skip silently
               }
+            } else if (currentEvent === "suggestions") {
+              try {
+                onSuggestions(JSON.parse(data) as string[]);
+              } catch {
+                // Malformed suggestions payload — skip silently
+              }
             } else {
               if (data === "[DONE]") {
                 onDone();
                 return;
+              }
+              if (data === "[CONTENT_DONE]") {
+                onContentDone();
+                continue;
               }
               if (data) {
                 try {

@@ -40,7 +40,7 @@ from pydantic import BaseModel, HttpUrl
 from backend.config import get_settings, save_settings_overlay
 from backend.core.fetcher import FetchResult, RepoFetchError, fetch_repo, get_remote_head
 from backend.core.indexer import build_index, delete_index
-from backend.core.llm import LLMError, LLMMode, stream_answer
+from backend.core.llm import LLMError, LLMMode, generate_suggestions, stream_answer
 from backend.core.retriever import SourceChunk, retrieve
 from backend import db
 
@@ -284,6 +284,7 @@ async def chat(body: ChatRequest):
     async def event_stream() -> AsyncGenerator[str, None]:
         accumulated: list[str] = []
         saved_sources: list | None = None
+        had_error = False
         try:
             # Retrieval is synchronous (vector search) — off the event loop.
             source_chunks: list[SourceChunk] = await asyncio.to_thread(
@@ -301,9 +302,11 @@ async def chat(body: ChatRequest):
                 yield f"data: {json.dumps(token)}\n\n"
 
         except LLMError as exc:
+            had_error = True
             logger.warning("LLM error for repo '%s': %s", body.repo_id, exc)
             yield f"data: [ERROR] {exc}\n\n"
         except Exception:
+            had_error = True
             logger.exception(
                 "Unexpected error in /chat for repo '%s'", body.repo_id
             )
@@ -319,6 +322,14 @@ async def chat(body: ChatRequest):
                     full_response,
                     saved_sources,
                 )
+            # Signal that answer text is complete; client shows suggestion loading state.
+            if not had_error and accumulated:
+                yield "data: [CONTENT_DONE]\n\n"
+                suggestions = await generate_suggestions(
+                    body.question, "".join(accumulated), body.mode
+                )
+                if suggestions:
+                    yield f"event: suggestions\ndata: {json.dumps(suggestions)}\n\n"
             yield "data: [DONE]\n\n"
 
     return StreamingResponse(

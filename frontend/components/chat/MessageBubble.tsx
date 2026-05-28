@@ -11,10 +11,17 @@ import { cn } from '@/lib/utils'
 import SourceDrawer from './SourceDrawer'
 import type { Message } from '@/types'
 
-export default function MessageBubble({ message }: { message: Message }) {
+interface MessageBubbleProps {
+  message: Message
+  onSuggestionClick?: (question: string) => void
+}
+
+export default function MessageBubble({ message, onSuggestionClick }: MessageBubbleProps) {
   const [drawerOpen, setDrawerOpen] = useState(false)
   const isUser = message.role === 'user'
   const hasSources = !message.streaming && (message.sources?.length ?? 0) > 0
+  const hasSuggestions = !message.streaming && !message.error && (message.suggestions?.length ?? 0) > 0
+  const loadingSuggestions = !message.streaming && !message.error && message.suggestionsLoading
 
   return (
     <motion.div
@@ -105,6 +112,34 @@ export default function MessageBubble({ message }: { message: Message }) {
               onOpenChange={setDrawerOpen}
             />
           </>
+        )}
+
+        {/* Suggestion loading skeleton */}
+        {loadingSuggestions && (
+          <div className="mt-1 flex flex-wrap gap-1.5">
+            {[72, 96, 80].map((w) => (
+              <div
+                key={w}
+                style={{ width: w }}
+                className="h-7 animate-pulse rounded-lg bg-muted/60"
+              />
+            ))}
+          </div>
+        )}
+
+        {/* Follow-up suggestion chips */}
+        {hasSuggestions && onSuggestionClick && (
+          <div className="mt-1 flex flex-wrap gap-1.5">
+            {message.suggestions!.map((q) => (
+              <button
+                key={q}
+                onClick={() => onSuggestionClick(q)}
+                className="cursor-pointer rounded-lg border border-border bg-card/60 px-3 py-1.5 text-left text-xs text-muted-foreground transition-[border-color,background-color,color] duration-150 hover:border-indigo-500/30 hover:bg-card hover:text-foreground"
+              >
+                {q}
+              </button>
+            ))}
+          </div>
         )}
       </div>
     </motion.div>
