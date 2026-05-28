@@ -78,28 +78,30 @@ async def stream_local(prompt: str) -> AsyncGenerator[str, None]:
     }
 
     try:
-        async with httpx.AsyncClient(timeout=_OLLAMA_TIMEOUT) as client:
-            async with client.stream("POST", url, json=payload) as response:
-                if response.status_code != 200:
-                    body = await response.aread()
-                    raise LLMError(
-                        f"Ollama returned HTTP {response.status_code}: {body.decode()}"
-                    )
-                async for raw_line in response.aiter_lines():
-                    if not raw_line:
-                        continue
-                    try:
-                        data = json.loads(raw_line)
-                    except json.JSONDecodeError:
-                        logger.warning("Ollama: non-JSON line: %s", raw_line)
-                        continue
+        async with (
+            httpx.AsyncClient(timeout=_OLLAMA_TIMEOUT) as client,
+            client.stream("POST", url, json=payload) as response,
+        ):
+            if response.status_code != 200:
+                body = await response.aread()
+                raise LLMError(
+                    f"Ollama returned HTTP {response.status_code}: {body.decode()}"
+                )
+            async for raw_line in response.aiter_lines():
+                if not raw_line:
+                    continue
+                try:
+                    data = json.loads(raw_line)
+                except json.JSONDecodeError:
+                    logger.warning("Ollama: non-JSON line: %s", raw_line)
+                    continue
 
-                    token: str = data.get("response", "")
-                    if token:
-                        yield token
+                token: str = data.get("response", "")
+                if token:
+                    yield token
 
-                    if data.get("done"):
-                        break
+                if data.get("done"):
+                    break
 
     except httpx.ConnectError as exc:
         raise LLMError(
