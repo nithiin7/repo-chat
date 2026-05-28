@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { ArrowLeft, Cpu, Cloud, Eye, EyeOff, Check, AlertCircle, RefreshCw, Database, Download } from 'lucide-react'
 import { NavBar } from '@/components/ui/nav-bar'
+import { Button, buttonVariants } from '@/components/ui/button'
 import { Dropdown } from '@/components/ui/dropdown'
 import { Skeleton } from '@/components/ui/skeleton'
 import { getSettings, updateSettings, getOllamaModels, getEmbeddingModels, pullEmbeddingModel } from '@/lib/api'
@@ -129,7 +130,7 @@ export default function SettingsPage() {
         <div className="mx-auto flex max-w-screen-2xl items-center gap-4 px-4 py-5 sm:px-6 lg:px-10">
           <Link
             href="/dashboard"
-            className="flex items-center gap-1.5 rounded-md px-2 py-1 text-sm text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+            className={cn(buttonVariants({ variant: 'ghost', size: 'sm' }), 'text-muted-foreground')}
           >
             <ArrowLeft className="size-3.5" />
             Dashboard
@@ -192,14 +193,15 @@ export default function SettingsPage() {
                           className="flex-1 rounded-md border border-border bg-background px-3 py-2 text-sm placeholder:text-muted-foreground/50 focus:outline-none focus:ring-1 focus:ring-ring"
                         />
                       )}
-                      <button
+                      <Button
                         type="button"
+                        variant="outline"
+                        size="icon"
                         onClick={refreshOllamaModels}
                         title="Refresh model list"
-                        className="flex items-center justify-center rounded-md border border-border px-3 py-2 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
                       >
                         <RefreshCw className="size-3.5" />
-                      </button>
+                      </Button>
                     </div>
                     {ollamaModels.length === 0 && (
                       <p className="mt-1.5 text-xs text-muted-foreground/70">

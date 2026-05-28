@@ -3,6 +3,8 @@
 import Link from 'next/link'
 import { AlertCircle, RefreshCw, ArrowLeft } from 'lucide-react'
 import { NavBar } from '@/components/ui/nav-bar'
+import { Button, buttonVariants } from '@/components/ui/button'
+import { cn } from '@/lib/utils'
 
 export default function SettingsError({
   error,
@@ -19,8 +21,8 @@ export default function SettingsError({
       <div className="border-b border-border/50 bg-muted/30">
         <div className="mx-auto flex max-w-screen-2xl items-center gap-4 px-4 py-5 sm:px-6 lg:px-10">
           <Link
-            href="/"
-            className="flex items-center gap-1.5 rounded-md px-2 py-1 text-sm text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+            href="/dashboard"
+            className={cn(buttonVariants({ variant: 'ghost', size: 'sm' }), 'text-muted-foreground')}
           >
             <ArrowLeft className="size-3.5" />
             Home
@@ -41,17 +43,11 @@ export default function SettingsError({
           </p>
         </div>
         <div className="flex items-center gap-3">
-          <button
-            onClick={reset}
-            className="flex items-center gap-2 rounded-lg border border-border bg-card px-4 py-2 text-sm font-medium transition-colors hover:bg-muted"
-          >
+          <Button variant="outline" onClick={reset}>
             <RefreshCw className="size-3.5" />
             Try again
-          </button>
-          <Link
-            href="/"
-            className="flex items-center gap-2 rounded-lg bg-indigo-500 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-indigo-600"
-          >
+          </Button>
+          <Link href="/dashboard" className={cn(buttonVariants(), 'gap-2')}>
             <ArrowLeft className="size-3.5" />
             Back to home
           </Link>

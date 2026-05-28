@@ -15,7 +15,7 @@ export default function RepoInput() {
   const inputRef = useRef<HTMLInputElement>(null)
   const [url, setUrl] = useState('')
   const [status, setStatus] = useState<Status>('idle')
-  const [feedback, setFeedback] = useState<{ message: string; sub?: string } | null>(null)
+  const [feedback, setFeedback] = useState<{ message: string; sub?: string; variant: 'success' | 'error' } | null>(null)
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -32,6 +32,7 @@ export default function RepoInput() {
       setFeedback({
         message: `Successfully indexed ${result.file_count.toLocaleString()} files`,
         sub: 'Your repository is ready — open a chat below',
+        variant: 'success',
       })
       router.refresh()
       setTimeout(() => {
@@ -43,6 +44,7 @@ export default function RepoInput() {
       setFeedback({
         message: err instanceof Error ? err.message : 'Failed to index repository',
         sub: 'Check the URL and make sure it points to a public repo',
+        variant: 'error',
       })
       setTimeout(() => {
         setStatus('idle')
@@ -120,11 +122,11 @@ export default function RepoInput() {
             <div
               className={cn(
                 'mt-3 flex items-start gap-2.5 rounded-lg px-4 py-3 text-sm',
-                status === 'success' && 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-300',
-                status === 'error' && 'bg-red-500/10 text-red-700 dark:text-red-300',
+                feedback.variant === 'success' && 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-300',
+                feedback.variant === 'error' && 'bg-red-500/10 text-red-700 dark:text-red-300',
               )}
             >
-              {status === 'success' ? (
+              {feedback.variant === 'success' ? (
                 <CheckCircle2 className="mt-0.5 size-4 shrink-0" />
               ) : (
                 <AlertCircle className="mt-0.5 size-4 shrink-0" />

@@ -1,6 +1,8 @@
 import Link from 'next/link'
 import { FileQuestion, Home } from 'lucide-react'
 import { NavBar } from '@/components/ui/nav-bar'
+import { buttonVariants } from '@/components/ui/button'
+import { cn } from '@/lib/utils'
 
 export default function NotFound() {
   return (
@@ -17,10 +19,7 @@ export default function NotFound() {
             The page you&apos;re looking for doesn&apos;t exist or may have been moved.
           </p>
         </div>
-        <Link
-          href="/"
-          className="flex items-center gap-2 rounded-lg bg-indigo-500 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-indigo-600"
-        >
+        <Link href="/" className={cn(buttonVariants(), 'gap-2')}>
           <Home className="size-3.5" />
           Back to home
         </Link>

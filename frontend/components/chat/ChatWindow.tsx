@@ -200,7 +200,7 @@ export default function ChatWindow({ repo, repoId, chatId, chats: initialChats, 
   }
 
   return (
-    <div className="flex h-screen flex-col bg-background text-foreground">
+    <div className="flex h-screen overflow-hidden flex-col bg-background text-foreground">
       {/* ── Sticky header ── */}
       <motion.header
         initial={{ opacity: 0, y: -8 }}
