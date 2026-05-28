@@ -21,7 +21,7 @@ from backend.config import get_settings
 from backend.core.fetcher import fetch_repo
 from backend.core.indexer import build_index, delete_index
 from backend.core.retriever import retrieve
-from backend.core.llm import LLMMode, stream_response
+from backend.core.llm import LLMError, LLMMode, stream_answer
 
 
 # ---------------------------------------------------------------------------
