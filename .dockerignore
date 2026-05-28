@@ -1,0 +1,23 @@
+# Applied when build context is the repo root (backend image)
+.git/
+.DS_Store
+
+# Frontend — not needed for backend build
+frontend/node_modules
+frontend/.next
+frontend/.env*
+
+# Python caches
+**/__pycache__
+**/*.pyc
+**/*.pyo
+backend/.venv
+backend/venv
+
+# Data dirs (mounted as volumes at runtime)
+chroma_db/
+repos/
+*.db
+
+# Secrets
+backend/.env

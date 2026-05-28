@@ -45,13 +45,35 @@ Paste a repo URL. CodeLens clones it, indexes every source file into a vector st
 
 ## Quick Start
 
-### Prerequisites
+### Docker (recommended)
+
+The fastest way to run CodeLens locally. Starts the backend, frontend, and Ollama in one command.
+
+```bash
+cp backend/.env.example backend/.env   # add cloud API keys if you want cloud mode
+docker compose up --build
+```
+
+Open [http://localhost:3000](http://localhost:3000).
+
+> **First run:** Ollama starts empty. Pull the model once the container is up:
+> ```bash
+> docker exec -it <ollama-container-id> ollama pull llama3.1:8b
+> ```
+
+Vector store and downloaded models persist in named Docker volumes between restarts.
+
+---
+
+### Manual Setup
+
+#### Prerequisites
 
 - Python 3.11+
 - Node.js 22+
 - [Ollama](https://ollama.com) running locally with `llama3.1:8b` pulled (only needed for local mode)
 
-### 1. Backend
+#### 1. Backend
 
 ```bash
 cd backend
@@ -61,7 +83,7 @@ cp .env.example .env          # fill in API keys as needed
 uvicorn main:app --reload
 ```
 
-### 2. Frontend
+#### 2. Frontend
 
 ```bash
 cd frontend

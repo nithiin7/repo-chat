@@ -1,0 +1,44 @@
+services:
+  backend:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+    ports:
+      - "8000:8000"
+    env_file:
+      - backend/.env
+    environment:
+      # Override paths so data lands in named volumes
+      CHROMA_PERSIST_DIR: /app/chroma_db
+      REPOS_DIR: /app/repos
+      # Point Ollama at the companion service
+      OLLAMA_BASE_URL: http://ollama:11434
+    volumes:
+      - chroma_db:/app/chroma_db
+      - repos:/app/repos
+    depends_on:
+      - ollama
+
+  frontend:
+    build:
+      context: frontend
+      dockerfile: Dockerfile
+      args:
+        # Browser fetches go through the host — keep localhost:8000
+        NEXT_PUBLIC_API_URL: http://localhost:8000
+    ports:
+      - "3000:3000"
+    depends_on:
+      - backend
+
+  ollama:
+    image: ollama/ollama:latest
+    ports:
+      - "11434:11434"
+    volumes:
+      - ollama_models:/root/.ollama
+
+volumes:
+  chroma_db:
+  repos:
+  ollama_models:
