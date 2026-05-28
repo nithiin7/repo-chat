@@ -38,3 +38,26 @@ export interface Message {
   error?: boolean;
   sources?: SourceChunk[];
 }
+
+export type CloudProvider = "anthropic" | "openai";
+
+export interface Settings {
+  ollama_base_url: string;
+  ollama_model: string;
+  cloud_provider: CloudProvider;
+  anthropic_model: string;
+  has_anthropic_key: boolean;
+  openai_model: string;
+  openai_base_url: string;
+  has_openai_key: boolean;
+}
+
+export interface SettingsUpdate {
+  ollama_model?: string;
+  cloud_provider?: CloudProvider;
+  anthropic_model?: string;
+  anthropic_api_key?: string;
+  openai_model?: string;
+  openai_base_url?: string;
+  openai_api_key?: string;
+}

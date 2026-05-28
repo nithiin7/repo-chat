@@ -26,12 +26,13 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import AsyncGenerator
 
+import httpx
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, HttpUrl
 
-from backend.config import get_settings
+from backend.config import get_settings, save_settings_overlay
 from backend.core.fetcher import FetchResult, RepoFetchError, fetch_repo
 from backend.core.indexer import build_index, delete_index
 from backend.core.llm import LLMError, LLMMode, stream_answer
@@ -65,6 +66,28 @@ class RepoInfo(BaseModel):
     url: str
     indexed_at: str
     file_count: int
+
+
+class SettingsView(BaseModel):
+    """Safe settings representation — API keys replaced by presence booleans."""
+    ollama_base_url: str
+    ollama_model: str
+    cloud_provider: str
+    anthropic_model: str
+    has_anthropic_key: bool
+    openai_model: str
+    openai_base_url: str
+    has_openai_key: bool
+
+
+class SettingsUpdate(BaseModel):
+    ollama_model: str | None = None
+    cloud_provider: str | None = None
+    anthropic_model: str | None = None
+    anthropic_api_key: str | None = None
+    openai_model: str | None = None
+    openai_base_url: str | None = None
+    openai_api_key: str | None = None
 
 
 # ---------------------------------------------------------------------------
@@ -270,3 +293,89 @@ async def delete_repo(repo_id: str):
     _write_metadata(metadata)
 
     return {"status": "deleted", "repo_id": repo_id}
+
+
+# ---------------------------------------------------------------------------
+# GET /ollama/models
+# ---------------------------------------------------------------------------
+
+@app.get("/ollama/models")
+async def ollama_models():
+    """
+    Proxy Ollama's /api/tags endpoint and return a flat list of model names.
+    Returns an empty list if Ollama is not running rather than erroring.
+    """
+    settings = get_settings()
+    url = f"{settings.ollama_base_url.rstrip('/')}/api/tags"
+    try:
+        async with httpx.AsyncClient(timeout=5.0) as client:
+            response = await client.get(url)
+            if response.status_code != 200:
+                return {"models": []}
+            data = response.json()
+            names = [m["name"] for m in data.get("models", [])]
+            return {"models": names}
+    except Exception:
+        return {"models": []}
+
+
+# ---------------------------------------------------------------------------
+# GET /settings
+# ---------------------------------------------------------------------------
+
+@app.get("/settings", response_model=SettingsView)
+async def get_settings_view():
+    """Return current settings with API keys replaced by presence booleans."""
+    s = get_settings()
+    return SettingsView(
+        ollama_base_url=s.ollama_base_url,
+        ollama_model=s.ollama_model,
+        cloud_provider=s.cloud_provider,
+        anthropic_model=s.anthropic_model,
+        has_anthropic_key=bool(s.anthropic_api_key),
+        openai_model=s.openai_model,
+        openai_base_url=s.openai_base_url,
+        has_openai_key=bool(s.openai_api_key),
+    )
+
+
+# ---------------------------------------------------------------------------
+# PUT /settings
+# ---------------------------------------------------------------------------
+
+@app.put("/settings", response_model=SettingsView)
+async def update_settings(body: SettingsUpdate):
+    """Persist user-configurable settings to settings.json overlay."""
+    updates: dict = {}
+
+    if body.ollama_model is not None:
+        updates["ollama_model"] = body.ollama_model
+    if body.cloud_provider is not None:
+        if body.cloud_provider not in ("anthropic", "openai"):
+            raise HTTPException(status_code=422, detail="cloud_provider must be 'anthropic' or 'openai'")
+        updates["cloud_provider"] = body.cloud_provider
+    if body.anthropic_model is not None:
+        updates["anthropic_model"] = body.anthropic_model
+    if body.anthropic_api_key is not None:
+        updates["anthropic_api_key"] = body.anthropic_api_key
+    if body.openai_model is not None:
+        updates["openai_model"] = body.openai_model
+    if body.openai_base_url is not None:
+        updates["openai_base_url"] = body.openai_base_url
+    if body.openai_api_key is not None:
+        updates["openai_api_key"] = body.openai_api_key
+
+    if updates:
+        save_settings_overlay(updates)
+
+    s = get_settings()
+    return SettingsView(
+        ollama_base_url=s.ollama_base_url,
+        ollama_model=s.ollama_model,
+        cloud_provider=s.cloud_provider,
+        anthropic_model=s.anthropic_model,
+        has_anthropic_key=bool(s.anthropic_api_key),
+        openai_model=s.openai_model,
+        openai_base_url=s.openai_base_url,
+        has_openai_key=bool(s.openai_api_key),
+    )

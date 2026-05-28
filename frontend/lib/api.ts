@@ -1,4 +1,4 @@
-import type { ChatRequest, IndexRequest, IndexResponse, Repo, SourceChunk } from "@/types";
+import type { ChatRequest, IndexRequest, IndexResponse, Repo, Settings, SettingsUpdate, SourceChunk } from "@/types";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
 
@@ -105,4 +105,31 @@ export async function deleteRepo(repoId: string): Promise<{ status: string }> {
     throw new Error(`Delete repo failed: ${res.status} ${await res.text()}`);
   }
   return res.json() as Promise<{ status: string }>;
+}
+
+export async function getSettings(): Promise<Settings> {
+  const res = await fetch(`${API_BASE}/settings`);
+  if (!res.ok) {
+    throw new Error(`Get settings failed: ${res.status} ${await res.text()}`);
+  }
+  return res.json() as Promise<Settings>;
+}
+
+export async function updateSettings(body: SettingsUpdate): Promise<Settings> {
+  const res = await fetch(`${API_BASE}/settings`, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) {
+    throw new Error(`Update settings failed: ${res.status} ${await res.text()}`);
+  }
+  return res.json() as Promise<Settings>;
+}
+
+export async function getOllamaModels(): Promise<string[]> {
+  const res = await fetch(`${API_BASE}/ollama/models`);
+  if (!res.ok) return [];
+  const data = (await res.json()) as { models: string[] };
+  return data.models;
 }
