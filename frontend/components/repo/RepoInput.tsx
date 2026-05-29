@@ -10,7 +10,7 @@ import { cn } from '@/lib/utils'
 
 type Status = 'idle' | 'indexing' | 'success' | 'error'
 
-export default function RepoInput() {
+const RepoInput = () => {
   const router = useRouter()
   const inputRef = useRef<HTMLInputElement>(null)
   const [url, setUrl] = useState('')
@@ -144,3 +144,5 @@ export default function RepoInput() {
     </div>
   )
 }
+
+export default RepoInput

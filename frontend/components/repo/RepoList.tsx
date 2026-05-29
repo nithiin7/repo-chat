@@ -5,7 +5,7 @@ import { BookOpen } from 'lucide-react'
 import RepoCard from './RepoCard'
 import type { Repo } from '@/types'
 
-export default function RepoList({ repos }: { repos: Repo[] }) {
+const RepoList = ({ repos }: { repos: Repo[] }) => {
   if (repos.length === 0) {
     return (
       <div className="flex flex-col items-center gap-4 py-20 text-center">
@@ -52,3 +52,5 @@ export default function RepoList({ repos }: { repos: Repo[] }) {
     </section>
   )
 }
+
+export default RepoList

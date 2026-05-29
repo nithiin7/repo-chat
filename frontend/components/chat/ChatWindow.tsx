@@ -37,7 +37,7 @@ interface ChatWindowProps {
   initialMessages: ChatMessage[]
 }
 
-export default function ChatWindow({ repo, repoId, chatId, chats: initialChats, initialMessages }: ChatWindowProps) {
+const ChatWindow = ({ repo, repoId, chatId, chats: initialChats, initialMessages }: ChatWindowProps) => {
   const [activeChatId, setActiveChatId] = useState(chatId)
   const [messages, setMessages] = useState<Message[]>(() => dbMessagesToUi(initialMessages))
   const [mode, setMode] = useState<LLMMode>('local')
@@ -393,3 +393,5 @@ export default function ChatWindow({ repo, repoId, chatId, chats: initialChats, 
     </div>
   )
 }
+
+export default ChatWindow

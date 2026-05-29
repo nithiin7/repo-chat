@@ -18,7 +18,7 @@ interface SourceDrawerProps {
   onOpenChange: (open: boolean) => void
 }
 
-function scoreLabel(score: number) {
+const scoreLabel = (score: number) => {
   const pct = Math.round(score * 100)
   const color =
     pct >= 85
@@ -31,7 +31,7 @@ function scoreLabel(score: number) {
   return { pct, color }
 }
 
-export default function SourceDrawer({ sources, open, onOpenChange }: SourceDrawerProps) {
+const SourceDrawer = ({ sources, open, onOpenChange }: SourceDrawerProps) => {
   const [copiedIdx, setCopiedIdx] = useState<number | null>(null)
 
   const copy = (text: string, idx: number) => {
@@ -135,3 +135,5 @@ export default function SourceDrawer({ sources, open, onOpenChange }: SourceDraw
     </Sheet>
   )
 }
+
+export default SourceDrawer

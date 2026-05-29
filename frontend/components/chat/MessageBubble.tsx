@@ -16,7 +16,7 @@ interface MessageBubbleProps {
   onSuggestionClick?: (question: string) => void
 }
 
-export default function MessageBubble({ message, onSuggestionClick }: MessageBubbleProps) {
+const MessageBubble = ({ message, onSuggestionClick }: MessageBubbleProps) => {
   const [drawerOpen, setDrawerOpen] = useState(false)
   const isUser = message.role === 'user'
   const hasSources = !message.streaming && (message.sources?.length ?? 0) > 0
@@ -145,3 +145,5 @@ export default function MessageBubble({ message, onSuggestionClick }: MessageBub
     </motion.div>
   )
 }
+
+export default MessageBubble

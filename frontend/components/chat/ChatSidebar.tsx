@@ -15,13 +15,13 @@ interface ChatSidebarProps {
   onSelectChat: (chat: Chat) => void
 }
 
-export default function ChatSidebar({
+const ChatSidebar = ({
   repoId,
   activeChatId,
   chats,
   onChatsChange,
   onSelectChat,
-}: ChatSidebarProps) {
+}: ChatSidebarProps) => {
   const [isPending, startTransition] = useTransition()
   const [editingId, setEditingId] = useState<string | null>(null)
   const [editValue, setEditValue] = useState('')
@@ -202,3 +202,5 @@ export default function ChatSidebar({
     </div>
   )
 }
+
+export default ChatSidebar

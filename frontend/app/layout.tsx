@@ -20,20 +20,16 @@ export const metadata: Metadata = {
   description: "RAG-powered codebase Q&A. Index a GitHub or Bitbucket repo and chat with it instantly.",
 };
 
-export default function RootLayout({
-  children,
-}: Readonly<{
-  children: React.ReactNode;
-}>) {
-  return (
-    <html
-      lang="en"
-      suppressHydrationWarning
-      className={`${inter.variable} ${jetbrainsMono.variable} h-full antialiased`}
-    >
-      <body className="min-h-full flex flex-col">
-        <Providers>{children}</Providers>
-      </body>
-    </html>
-  );
-}
+const RootLayout = ({ children }: Readonly<{ children: React.ReactNode }>) => (
+  <html
+    lang="en"
+    suppressHydrationWarning
+    className={`${inter.variable} ${jetbrainsMono.variable} h-full antialiased`}
+  >
+    <body className="min-h-full flex flex-col">
+      <Providers>{children}</Providers>
+    </body>
+  </html>
+)
+
+export default RootLayout

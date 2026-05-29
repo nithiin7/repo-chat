@@ -1,5 +1,6 @@
 import RepoList from '@/components/repo/RepoList'
 import { NavBar } from '@/components/ui/nav-bar'
+import { Footer } from '@/components/ui/footer'
 import HeroSection from '@/components/hero/HeroSection'
 import { listRepos } from '@/lib/api'
 import type { Repo } from '@/types'
@@ -35,10 +36,7 @@ export default async function DashboardPage() {
         <RepoList repos={repos} />
       </main>
 
-      {/* ── Footer ── */}
-      <footer className="border-t border-border/40 py-6 text-center text-xs text-muted-foreground/60">
-        CodeLens — powered by LlamaIndex · ChromaDB · Ollama / Anthropic
-      </footer>
+      <Footer />
     </div>
   )
 }

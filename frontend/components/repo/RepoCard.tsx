@@ -9,7 +9,7 @@ import { checkRepoStatus, deleteRepo, indexRepo } from '@/lib/api'
 import { cn } from '@/lib/utils'
 import type { Repo } from '@/types'
 
-export default function RepoCard({ repo, index = 0 }: { repo: Repo; index?: number }) {
+const RepoCard = ({ repo, index = 0 }: { repo: Repo; index?: number }) => {
   const router = useRouter()
   const [deleting, setDeleting] = useState(false)
   const [hasUpdates, setHasUpdates] = useState(false)
@@ -165,3 +165,5 @@ export default function RepoCard({ repo, index = 0 }: { repo: Repo; index?: numb
     </motion.article>
   )
 }
+
+export default RepoCard

@@ -55,7 +55,7 @@ const FEATURES = [
   },
 ]
 
-export default function LandingPage() {
+const LandingPage = () => {
   return (
     <div className="relative flex min-h-screen flex-col">
       {/* ambient glow */}
@@ -177,3 +177,5 @@ export default function LandingPage() {
     </div>
   )
 }
+
+export default LandingPage

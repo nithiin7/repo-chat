@@ -10,8 +10,6 @@ export default async function ChatIndexPage({
 }) {
   const { repo_id } = await params
 
-  // Resolve the target chat ID *before* calling redirect(), because Next.js
-  // redirect() throws a special error that would be swallowed by a catch block.
   let targetChatId: string | null = null
 
   try {

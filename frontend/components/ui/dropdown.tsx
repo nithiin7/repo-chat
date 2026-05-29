@@ -17,11 +17,10 @@ interface DropdownProps {
   className?: string
 }
 
-function toOption(o: DropdownOption | string): DropdownOption {
-  return typeof o === 'string' ? { value: o, label: o } : o
-}
+const toOption = (o: DropdownOption | string): DropdownOption =>
+  typeof o === 'string' ? { value: o, label: o } : o
 
-export function Dropdown({ options, value, onChange, placeholder = 'Select…', className }: DropdownProps) {
+export const Dropdown = ({ options, value, onChange, placeholder = 'Select…', className }: DropdownProps) => {
   const [open, setOpen] = useState(false)
   const ref = useRef<HTMLDivElement>(null)
 

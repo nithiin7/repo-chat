@@ -5,13 +5,12 @@ import { useTheme } from 'next-themes'
 import { Sun, Moon } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
-export function ThemeToggle({ className }: { className?: string }) {
+export const ThemeToggle = ({ className }: { className?: string }) => {
   const { theme, setTheme } = useTheme()
   const [mounted, setMounted] = useState(false)
 
   useEffect(() => setMounted(true), [])
 
-  // Render a placeholder the same size to avoid layout shift during hydration
   if (!mounted) return <div className={cn('size-8', className)} />
 
   return (

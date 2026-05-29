@@ -2,24 +2,26 @@
 
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
-import { ArrowLeft, Cpu, Cloud, Eye, EyeOff, Check, AlertCircle, RefreshCw, Database, Download } from 'lucide-react'
+import { ArrowLeft, Cpu, Cloud, AlertCircle, RefreshCw, Database, Download, Check } from 'lucide-react'
 import { NavBar } from '@/components/ui/nav-bar'
+import { Input } from '@/components/ui/input'
 import { Button, buttonVariants } from '@/components/ui/button'
 import { Dropdown } from '@/components/ui/dropdown'
-import { Skeleton } from '@/components/ui/skeleton'
+import { Section, Field } from '@/components/settings/section'
+import { ProviderFields } from '@/components/settings/provider-fields'
 import { getSettings, updateSettings, getOllamaModels, getEmbeddingModels, pullEmbeddingModel } from '@/lib/api'
+import { SettingsSkeleton } from './loading'
 import type { CloudProvider, EmbeddingModel, Settings, SettingsUpdate } from '@/types'
 import { cn } from '@/lib/utils'
 
 type SaveState = 'idle' | 'saving' | 'saved' | 'error'
 
-export default function SettingsPage() {
+const SettingsPage = () => {
   const [settings, setSettings] = useState<Settings | null>(null)
   const [ollamaModels, setOllamaModels] = useState<string[]>([])
   const [loading, setLoading] = useState(true)
   const [loadError, setLoadError] = useState<string | null>(null)
 
-  // Local form state
   const [ollamaModel, setOllamaModel] = useState('')
   const [cloudProvider, setCloudProvider] = useState<CloudProvider>('anthropic')
   const [anthropicModel, setAnthropicModel] = useState('')
@@ -39,7 +41,6 @@ export default function SettingsPage() {
   const [saveState, setSaveState] = useState<SaveState>('idle')
   const [saveError, setSaveError] = useState<string | null>(null)
 
-  // Embedding model state
   const [embeddingModels, setEmbeddingModels] = useState<EmbeddingModel[]>([])
   const [embeddingModel, setEmbeddingModel] = useState('')
   const [pullState, setPullState] = useState<'idle' | 'pulling' | 'done' | 'error'>('idle')
@@ -185,12 +186,11 @@ export default function SettingsPage() {
                           onChange={setOllamaModel}
                         />
                       ) : (
-                        <input
-                          type="text"
+                        <Input
                           value={ollamaModel}
                           onChange={e => setOllamaModel(e.target.value)}
                           placeholder="e.g. llama3.1:8b"
-                          className="flex-1 rounded-md border border-border bg-background px-3 py-2 text-sm placeholder:text-muted-foreground/50 focus:outline-none focus:ring-1 focus:ring-ring"
+                          className="flex-1"
                         />
                       )}
                       <Button
@@ -219,7 +219,6 @@ export default function SettingsPage() {
                 description="Provider and model used when chatting in Cloud mode."
               >
                 <div className="space-y-5">
-                  {/* Provider toggle */}
                   <Field label="Provider">
                     <div className="flex items-center rounded-lg border border-border bg-card p-0.5 gap-0.5 self-start flex-wrap">
                       {(['anthropic', 'openai', 'groq', 'gemini'] as CloudProvider[]).map(p => (
@@ -240,109 +239,42 @@ export default function SettingsPage() {
                     </div>
                   </Field>
 
-                  {/* Anthropic fields */}
                   {cloudProvider === 'anthropic' && (
-                    <div className="space-y-3 rounded-lg border border-border p-4">
-                      <Field label="Model">
-                        <input
-                          type="text"
-                          value={anthropicModel}
-                          onChange={e => setAnthropicModel(e.target.value)}
-                          placeholder="claude-sonnet-4-6"
-                          className="flex-1 rounded-md border border-border bg-background px-3 py-2 text-sm placeholder:text-muted-foreground/50 focus:outline-none focus:ring-1 focus:ring-ring"
-                        />
-                      </Field>
-                      <Field label="API key" badge={settings?.has_anthropic_key ? <KeyBadge /> : null}>
-                        <KeyInput
-                          value={anthropicKey}
-                          onChange={setAnthropicKey}
-                          show={showAnthropicKey}
-                          onToggleShow={() => setShowAnthropicKey(v => !v)}
-                          placeholder={settings?.has_anthropic_key ? '••••••••  (leave blank to keep)' : 'sk-ant-…'}
-                        />
-                      </Field>
-                    </div>
+                    <ProviderFields
+                      model={anthropicModel} onModelChange={setAnthropicModel} modelPlaceholder="claude-sonnet-4-6"
+                      apiKey={anthropicKey} onApiKeyChange={setAnthropicKey}
+                      showKey={showAnthropicKey} onToggleKey={() => setShowAnthropicKey(v => !v)}
+                      keyPlaceholder={settings?.has_anthropic_key ? '••••••••  (leave blank to keep)' : 'sk-ant-…'}
+                      hasKey={!!settings?.has_anthropic_key}
+                    />
                   )}
-
-                  {/* OpenAI fields */}
                   {cloudProvider === 'openai' && (
-                    <div className="space-y-3 rounded-lg border border-border p-4">
-                      <Field label="Model">
-                        <input
-                          type="text"
-                          value={openaiModel}
-                          onChange={e => setOpenaiModel(e.target.value)}
-                          placeholder="gpt-4o"
-                          className="flex-1 rounded-md border border-border bg-background px-3 py-2 text-sm placeholder:text-muted-foreground/50 focus:outline-none focus:ring-1 focus:ring-ring"
-                        />
-                      </Field>
-                      <Field label="Base URL">
-                        <input
-                          type="text"
-                          value={openaiBaseUrl}
-                          onChange={e => setOpenaiBaseUrl(e.target.value)}
-                          placeholder="https://api.openai.com/v1"
-                          className="flex-1 rounded-md border border-border bg-background px-3 py-2 text-sm placeholder:text-muted-foreground/50 focus:outline-none focus:ring-1 focus:ring-ring"
-                        />
-                      </Field>
-                      <Field label="API key" badge={settings?.has_openai_key ? <KeyBadge /> : null}>
-                        <KeyInput
-                          value={openaiKey}
-                          onChange={setOpenaiKey}
-                          show={showOpenaiKey}
-                          onToggleShow={() => setShowOpenaiKey(v => !v)}
-                          placeholder={settings?.has_openai_key ? '••••••••  (leave blank to keep)' : 'sk-…'}
-                        />
-                      </Field>
-                    </div>
+                    <ProviderFields
+                      model={openaiModel} onModelChange={setOpenaiModel} modelPlaceholder="gpt-4o"
+                      baseUrl={openaiBaseUrl} onBaseUrlChange={setOpenaiBaseUrl}
+                      apiKey={openaiKey} onApiKeyChange={setOpenaiKey}
+                      showKey={showOpenaiKey} onToggleKey={() => setShowOpenaiKey(v => !v)}
+                      keyPlaceholder={settings?.has_openai_key ? '••••••••  (leave blank to keep)' : 'sk-…'}
+                      hasKey={!!settings?.has_openai_key}
+                    />
                   )}
-
-                  {/* Groq fields */}
                   {cloudProvider === 'groq' && (
-                    <div className="space-y-3 rounded-lg border border-border p-4">
-                      <Field label="Model">
-                        <input
-                          type="text"
-                          value={groqModel}
-                          onChange={e => setGroqModel(e.target.value)}
-                          placeholder="llama-3.3-70b-versatile"
-                          className="flex-1 rounded-md border border-border bg-background px-3 py-2 text-sm placeholder:text-muted-foreground/50 focus:outline-none focus:ring-1 focus:ring-ring"
-                        />
-                      </Field>
-                      <Field label="API key" badge={settings?.has_groq_key ? <KeyBadge /> : null}>
-                        <KeyInput
-                          value={groqKey}
-                          onChange={setGroqKey}
-                          show={showGroqKey}
-                          onToggleShow={() => setShowGroqKey(v => !v)}
-                          placeholder={settings?.has_groq_key ? '••••••••  (leave blank to keep)' : 'gsk_…'}
-                        />
-                      </Field>
-                    </div>
+                    <ProviderFields
+                      model={groqModel} onModelChange={setGroqModel} modelPlaceholder="llama-3.3-70b-versatile"
+                      apiKey={groqKey} onApiKeyChange={setGroqKey}
+                      showKey={showGroqKey} onToggleKey={() => setShowGroqKey(v => !v)}
+                      keyPlaceholder={settings?.has_groq_key ? '••••••••  (leave blank to keep)' : 'gsk_…'}
+                      hasKey={!!settings?.has_groq_key}
+                    />
                   )}
-
-                  {/* Gemini fields */}
                   {cloudProvider === 'gemini' && (
-                    <div className="space-y-3 rounded-lg border border-border p-4">
-                      <Field label="Model">
-                        <input
-                          type="text"
-                          value={geminiModel}
-                          onChange={e => setGeminiModel(e.target.value)}
-                          placeholder="gemini-2.0-flash"
-                          className="flex-1 rounded-md border border-border bg-background px-3 py-2 text-sm placeholder:text-muted-foreground/50 focus:outline-none focus:ring-1 focus:ring-ring"
-                        />
-                      </Field>
-                      <Field label="API key" badge={settings?.has_gemini_key ? <KeyBadge /> : null}>
-                        <KeyInput
-                          value={geminiKey}
-                          onChange={setGeminiKey}
-                          show={showGeminiKey}
-                          onToggleShow={() => setShowGeminiKey(v => !v)}
-                          placeholder={settings?.has_gemini_key ? '••••••••  (leave blank to keep)' : 'AIza…'}
-                        />
-                      </Field>
-                    </div>
+                    <ProviderFields
+                      model={geminiModel} onModelChange={setGeminiModel} modelPlaceholder="gemini-2.0-flash"
+                      apiKey={geminiKey} onApiKeyChange={setGeminiKey}
+                      showKey={showGeminiKey} onToggleKey={() => setShowGeminiKey(v => !v)}
+                      keyPlaceholder={settings?.has_gemini_key ? '••••••••  (leave blank to keep)' : 'AIza…'}
+                      hasKey={!!settings?.has_gemini_key}
+                    />
                   )}
                 </div>
               </Section>
@@ -371,12 +303,11 @@ export default function SettingsPage() {
                           onChange={setEmbeddingModel}
                         />
                       ) : (
-                        <input
-                          type="text"
+                        <Input
                           value={embeddingModel}
                           onChange={e => setEmbeddingModel(e.target.value)}
                           placeholder="e.g. BAAI/bge-small-en-v1.5"
-                          className="flex-1 rounded-md border border-border bg-background px-3 py-2 text-sm placeholder:text-muted-foreground/50 focus:outline-none focus:ring-1 focus:ring-ring"
+                          className="flex-1"
                         />
                       )}
                       <button
@@ -452,169 +383,5 @@ export default function SettingsPage() {
   )
 }
 
-// ---------------------------------------------------------------------------
-// Skeleton
-// ---------------------------------------------------------------------------
 
-function SettingsSkeleton() {
-  return (
-    <>
-      <div className="mb-8 space-y-2">
-        <Skeleton className="h-7 w-24" />
-        <Skeleton className="h-4 w-96 max-w-full" />
-      </div>
-
-      <div className="grid grid-cols-1 gap-6 lg:grid-cols-2 xl:gap-8">
-        {/* Local (Ollama) card */}
-        <div className="flex flex-col rounded-xl border border-border bg-card p-6">
-          <div className="mb-6 flex items-center gap-3">
-            <Skeleton className="size-8 rounded-lg" />
-            <div className="space-y-1.5">
-              <Skeleton className="h-4 w-28" />
-              <Skeleton className="h-3 w-56" />
-            </div>
-          </div>
-          <div className="space-y-1.5">
-            <Skeleton className="h-3 w-24" />
-            <div className="flex gap-2">
-              <Skeleton className="h-9 flex-1 rounded-md" />
-              <Skeleton className="h-9 w-10 rounded-md" />
-            </div>
-          </div>
-        </div>
-
-        {/* Cloud card */}
-        <div className="flex flex-col rounded-xl border border-border bg-card p-6">
-          <div className="mb-6 flex items-center gap-3">
-            <Skeleton className="size-8 rounded-lg" />
-            <div className="space-y-1.5">
-              <Skeleton className="h-4 w-12" />
-              <Skeleton className="h-3 w-56" />
-            </div>
-          </div>
-          <div className="space-y-5">
-            {/* Provider toggle */}
-            <div className="space-y-1.5">
-              <Skeleton className="h-3 w-16" />
-              <div className="flex gap-1 self-start rounded-lg border border-border bg-card p-0.5">
-                <Skeleton className="h-7 w-20 rounded-md" />
-                <Skeleton className="h-7 w-16 rounded-md" />
-                <Skeleton className="h-7 w-12 rounded-md" />
-                <Skeleton className="h-7 w-16 rounded-md" />
-              </div>
-            </div>
-            {/* Provider fields */}
-            <div className="space-y-3 rounded-lg border border-border p-4">
-              <div className="space-y-1.5">
-                <Skeleton className="h-3 w-12" />
-                <Skeleton className="h-9 w-full rounded-md" />
-              </div>
-              <div className="space-y-1.5">
-                <Skeleton className="h-3 w-14" />
-                <Skeleton className="h-9 w-full rounded-md" />
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* Save bar */}
-      <div className="mt-8 border-t border-border pt-6">
-        <Skeleton className="h-10 w-32 rounded-lg" />
-      </div>
-    </>
-  )
-}
-
-// ---------------------------------------------------------------------------
-// Layout helpers
-// ---------------------------------------------------------------------------
-
-function Section({
-  icon,
-  title,
-  description,
-  children,
-}: {
-  icon: React.ReactNode
-  title: string
-  description: string
-  children: React.ReactNode
-}) {
-  return (
-    <div className="flex flex-col rounded-xl border border-border bg-card p-6">
-      <div className="mb-6 flex items-center gap-3">
-        <div className="flex size-8 items-center justify-center rounded-lg border border-border bg-muted">
-          {icon}
-        </div>
-        <div>
-          <h2 className="text-sm font-semibold">{title}</h2>
-          <p className="mt-0.5 text-xs text-muted-foreground">{description}</p>
-        </div>
-      </div>
-      {children}
-    </div>
-  )
-}
-
-function Field({
-  label,
-  badge,
-  children,
-}: {
-  label: string
-  badge?: React.ReactNode
-  children: React.ReactNode
-}) {
-  return (
-    <div className="space-y-1.5">
-      <div className="flex items-center gap-2">
-        <span className="text-xs font-medium text-muted-foreground">{label}</span>
-        {badge}
-      </div>
-      {children}
-    </div>
-  )
-}
-
-function KeyBadge() {
-  return (
-    <span className="flex items-center gap-1 rounded-full bg-emerald-500/10 px-2 py-0.5 text-xs text-emerald-400">
-      <Check className="size-3" />
-      Configured
-    </span>
-  )
-}
-
-function KeyInput({
-  value,
-  onChange,
-  show,
-  onToggleShow,
-  placeholder,
-}: {
-  value: string
-  onChange: (v: string) => void
-  show: boolean
-  onToggleShow: () => void
-  placeholder: string
-}) {
-  return (
-    <div className="relative">
-      <input
-        type={show ? 'text' : 'password'}
-        value={value}
-        onChange={e => onChange(e.target.value)}
-        placeholder={placeholder}
-        className="w-full rounded-md border border-border bg-background px-3 py-2 pr-10 text-sm placeholder:text-muted-foreground/50 focus:outline-none focus:ring-1 focus:ring-ring"
-      />
-      <button
-        type="button"
-        onClick={onToggleShow}
-        className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground transition-colors hover:text-foreground"
-      >
-        {show ? <EyeOff className="size-3.5" /> : <Eye className="size-3.5" />}
-      </button>
-    </div>
-  )
-}
+export default SettingsPage
