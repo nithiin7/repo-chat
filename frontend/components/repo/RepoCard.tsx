@@ -1,53 +1,44 @@
 'use client'
 
-import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { motion } from 'framer-motion'
 import { GitFork, MessageSquare, Trash2, Loader2, FileCode2, Clock, RefreshCw } from 'lucide-react'
 import { Button } from '@/components/ui/button'
-import { checkRepoStatus, deleteRepo, indexRepo } from '@/lib/api'
+import { checkRepoStatus, deleteRepo, indexRepo } from '@/lib/api/repos'
+import { queryKeys } from '@/lib/api/queryKeys'
 import { cn } from '@/lib/utils'
 import type { Repo } from '@/types'
 
 const RepoCard = ({ repo, index = 0 }: { repo: Repo; index?: number }) => {
   const router = useRouter()
-  const [deleting, setDeleting] = useState(false)
-  const [hasUpdates, setHasUpdates] = useState(false)
-  const [reindexing, setReindexing] = useState(false)
+  const queryClient = useQueryClient()
 
   const displayName = repo.name || repo.url.replace(/^https?:\/\//, '').split('/').slice(1, 3).join('/')
   const indexedAt = new Date(repo.indexed_at).toLocaleDateString('en-US', {
     month: 'short', day: 'numeric', year: 'numeric',
   })
 
-  useEffect(() => {
-    checkRepoStatus(repo.repo_id)
-      .then((status) => setHasUpdates(status.has_updates))
-      .catch(() => {/* silently ignore — network or auth failure */})
-  }, [repo.repo_id])
+  const { data: status } = useQuery({
+    queryKey: queryKeys.repoStatus(repo.repo_id),
+    queryFn: () => checkRepoStatus(repo.repo_id),
+    staleTime: 60 * 1000,
+    retry: false,
+  })
+  const hasUpdates = status?.has_updates ?? false
 
-  const handleDelete = async () => {
-    setDeleting(true)
-    try {
-      await deleteRepo(repo.repo_id)
-      router.refresh()
-    } catch {
-      setDeleting(false)
-    }
-  }
+  const { mutate: handleDelete, isPending: deleting } = useMutation({
+    mutationFn: () => deleteRepo(repo.repo_id),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: queryKeys.repos() }),
+  })
 
-  const handleReindex = async () => {
-    setReindexing(true)
-    try {
-      await indexRepo({ repo_url: repo.url, force: true })
-      setHasUpdates(false)
-      router.refresh()
-    } catch {
-      // leave hasUpdates as-is so user can retry
-    } finally {
-      setReindexing(false)
-    }
-  }
+  const { mutate: handleReindex, isPending: reindexing } = useMutation({
+    mutationFn: () => indexRepo({ repo_url: repo.url, force: true }),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: queryKeys.repos() })
+      void queryClient.invalidateQueries({ queryKey: queryKeys.repoStatus(repo.repo_id) })
+    },
+  })
 
   return (
     <motion.article
@@ -65,7 +56,7 @@ const RepoCard = ({ repo, index = 0 }: { repo: Repo; index?: number }) => {
       {/* Action buttons — visible on hover */}
       <div className="absolute right-3 top-3 flex items-center gap-1 opacity-0 transition-opacity duration-150 group-hover:opacity-100">
         <button
-          onClick={handleReindex}
+          onClick={() => handleReindex()}
           disabled={reindexing}
           aria-label="Re-index repository"
           className={cn(
@@ -78,7 +69,7 @@ const RepoCard = ({ repo, index = 0 }: { repo: Repo; index?: number }) => {
           <RefreshCw className={cn('size-3.5', reindexing && 'animate-spin')} />
         </button>
         <button
-          onClick={handleDelete}
+          onClick={() => handleDelete()}
           disabled={deleting}
           aria-label="Delete repository"
           className="cursor-pointer rounded-md p-1.5 text-muted-foreground transition-all duration-150 hover:bg-red-500/10 hover:text-red-400"
@@ -130,7 +121,7 @@ const RepoCard = ({ repo, index = 0 }: { repo: Repo; index?: number }) => {
       {hasUpdates ? (
         <div className="mt-auto flex gap-2">
           <Button
-            onClick={handleReindex}
+            onClick={() => handleReindex()}
             disabled={reindexing}
             size="sm"
             variant="outline"

@@ -1,5 +1,6 @@
 import { notFound } from 'next/navigation'
-import { getChatMessages, listChats, listRepos } from '@/lib/api'
+import { getChatMessages, listChats } from '@/lib/api/chats'
+import { listRepos } from '@/lib/api/repos'
 import ChatWindow from '@/components/chat/ChatWindow'
 import type { Chat, ChatMessage, Repo } from '@/types'
 

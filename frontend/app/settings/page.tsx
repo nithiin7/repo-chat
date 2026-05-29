@@ -1,20 +1,22 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import Link from 'next/link'
 import { ArrowLeft, Cpu, Cloud, AlertCircle, RefreshCw, Database, Download, Check } from 'lucide-react'
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { NavBar } from '@/components/ui/nav-bar'
 import { Input } from '@/components/ui/input'
 import { Button, buttonVariants } from '@/components/ui/button'
 import { Dropdown } from '@/components/ui/dropdown'
 import { Section, Field } from '@/components/settings/section'
 import { ProviderFields } from '@/components/settings/provider-fields'
-import { getSettings, updateSettings, getOllamaModels, getEmbeddingModels, pullEmbeddingModel } from '@/lib/api'
+import { getSettings, updateSettings, getOllamaModels, getEmbeddingModels, pullEmbeddingModel } from '@/lib/api/settings'
+import { queryKeys } from '@/lib/api/queryKeys'
 import { SettingsSkeleton } from './loading'
 import type { CloudProvider, EmbeddingModel, Settings, SettingsUpdate } from '@/types'
 import { cn } from '@/lib/utils'
 
-type SaveState = 'idle' | 'saving' | 'saved' | 'error'
+type SaveState = 'idle' | 'saved' | 'error'
 type ProviderCfg = { model: string; key: string; baseUrl?: string }
 
 const CLOUD_PROVIDERS: { value: CloudProvider; label: string }[] = [
@@ -25,11 +27,27 @@ const CLOUD_PROVIDERS: { value: CloudProvider; label: string }[] = [
 ]
 
 const SettingsPage = () => {
-  const [settings, setSettings] = useState<Settings | null>(null)
-  const [ollamaModels, setOllamaModels] = useState<string[]>([])
-  const [loading, setLoading] = useState(true)
-  const [loadError, setLoadError] = useState<string | null>(null)
+  const queryClient = useQueryClient()
 
+  const { data: settings, isLoading, isError } = useQuery({
+    queryKey: queryKeys.settings(),
+    queryFn: getSettings,
+    retry: false,
+  })
+
+  const { data: ollamaModels = [] } = useQuery({
+    queryKey: queryKeys.ollamaModels(),
+    queryFn: getOllamaModels,
+  })
+
+  const { data: embeddingModels = [] } = useQuery({
+    queryKey: queryKeys.embeddingModels(),
+    queryFn: getEmbeddingModels,
+    staleTime: 5 * 60 * 1000,
+  })
+
+  // Form state — initialized once from settings, then managed independently
+  const initialized = useRef(false)
   const [ollamaModel, setOllamaModel] = useState('')
   const [cloudProvider, setCloudProvider] = useState<CloudProvider>('anthropic')
   const [providerConfig, setProviderConfig] = useState<Record<CloudProvider, ProviderCfg>>({
@@ -39,68 +57,31 @@ const SettingsPage = () => {
     gemini: { model: '', key: '' },
   })
   const [showKey, setShowKey] = useState(false)
+  const [embeddingModel, setEmbeddingModel] = useState('')
 
   const [saveState, setSaveState] = useState<SaveState>('idle')
   const [saveError, setSaveError] = useState<string | null>(null)
-
-  const [embeddingModels, setEmbeddingModels] = useState<EmbeddingModel[]>([])
-  const [embeddingModel, setEmbeddingModel] = useState('')
   const [pullState, setPullState] = useState<'idle' | 'pulling' | 'done' | 'error'>('idle')
   const [pullError, setPullError] = useState<string | null>(null)
 
   useEffect(() => {
-    async function load() {
-      try {
-        const [s, models, embedModels] = await Promise.all([getSettings(), getOllamaModels(), getEmbeddingModels()])
-        setSettings(s)
-        setOllamaModels(models)
-        setOllamaModel(s.ollama_model)
-        setCloudProvider(s.cloud_provider)
-        setProviderConfig({
-          anthropic: { model: s.anthropic_model, key: '' },
-          openai: { model: s.openai_model, key: '', baseUrl: s.openai_base_url },
-          groq: { model: s.groq_model, key: '' },
-          gemini: { model: s.gemini_model, key: '' },
-        })
-        setEmbeddingModels(embedModels)
-        setEmbeddingModel(s.embedding_model)
-      } catch {
-        setLoadError('Could not reach the backend. Make sure it is running.')
-      } finally {
-        setLoading(false)
-      }
-    }
-    load()
-  }, [])
+    if (!settings || initialized.current) return
+    initialized.current = true
+    setOllamaModel(settings.ollama_model)
+    setCloudProvider(settings.cloud_provider)
+    setProviderConfig({
+      anthropic: { model: settings.anthropic_model, key: '' },
+      openai: { model: settings.openai_model, key: '', baseUrl: settings.openai_base_url },
+      groq: { model: settings.groq_model, key: '' },
+      gemini: { model: settings.gemini_model, key: '' },
+    })
+    setEmbeddingModel(settings.embedding_model)
+  }, [settings])
 
-  const setActiveField = (field: keyof ProviderCfg, value: string) =>
-    setProviderConfig(c => ({ ...c, [cloudProvider]: { ...c[cloudProvider], [field]: value } }))
-
-  async function refreshOllamaModels() {
-    const models = await getOllamaModels()
-    setOllamaModels(models)
-  }
-
-  async function handleSave() {
-    setSaveState('saving')
-    setSaveError(null)
-    try {
-      const update: SettingsUpdate = {
-        ollama_model: ollamaModel || undefined,
-        cloud_provider: cloudProvider,
-        anthropic_model: providerConfig.anthropic.model || undefined,
-        openai_model: providerConfig.openai.model || undefined,
-        openai_base_url: providerConfig.openai.baseUrl || undefined,
-        groq_model: providerConfig.groq.model || undefined,
-        gemini_model: providerConfig.gemini.model || undefined,
-      }
-      if (providerConfig.anthropic.key) update.anthropic_api_key = providerConfig.anthropic.key
-      if (providerConfig.openai.key) update.openai_api_key = providerConfig.openai.key
-      if (providerConfig.groq.key) update.groq_api_key = providerConfig.groq.key
-      if (providerConfig.gemini.key) update.gemini_api_key = providerConfig.gemini.key
-
-      const updated = await updateSettings(update)
-      setSettings(updated)
+  const saveSettingsMutation = useMutation({
+    mutationFn: updateSettings,
+    onSuccess: (updated) => {
+      queryClient.setQueryData(queryKeys.settings(), updated)
       setProviderConfig(c => ({
         ...c,
         anthropic: { ...c.anthropic, key: '' },
@@ -110,26 +91,61 @@ const SettingsPage = () => {
       }))
       setSaveState('saved')
       setTimeout(() => setSaveState('idle'), 3000)
-    } catch (err) {
+    },
+    onError: (err) => {
       setSaveError(err instanceof Error ? err.message : 'Failed to save settings.')
       setSaveState('error')
-    }
-  }
+    },
+  })
 
-  async function handlePull() {
-    if (!embeddingModel) return
-    setPullState('pulling')
-    setPullError(null)
-    try {
-      await pullEmbeddingModel(embeddingModel)
-      setSettings(s => s ? { ...s, embedding_model: embeddingModel } : s)
+  const pullMutation = useMutation({
+    mutationFn: pullEmbeddingModel,
+    onSuccess: () => {
+      queryClient.setQueryData<Settings>(queryKeys.settings(), (old) =>
+        old ? { ...old, embedding_model: embeddingModel } : old,
+      )
       setPullState('done')
       setTimeout(() => setPullState('idle'), 3000)
-    } catch (err) {
+    },
+    onError: (err) => {
       setPullError(err instanceof Error ? err.message : 'Failed to download model.')
       setPullState('error')
-    }
+    },
+  })
+
+  const setActiveField = (field: keyof ProviderCfg, value: string) =>
+    setProviderConfig(c => ({ ...c, [cloudProvider]: { ...c[cloudProvider], [field]: value } }))
+
+  function refreshOllamaModels() {
+    void queryClient.invalidateQueries({ queryKey: queryKeys.ollamaModels() })
   }
+
+  function handleSave() {
+    setSaveError(null)
+    const update: SettingsUpdate = {
+      ollama_model: ollamaModel || undefined,
+      cloud_provider: cloudProvider,
+      anthropic_model: providerConfig.anthropic.model || undefined,
+      openai_model: providerConfig.openai.model || undefined,
+      openai_base_url: providerConfig.openai.baseUrl || undefined,
+      groq_model: providerConfig.groq.model || undefined,
+      gemini_model: providerConfig.gemini.model || undefined,
+    }
+    if (providerConfig.anthropic.key) update.anthropic_api_key = providerConfig.anthropic.key
+    if (providerConfig.openai.key) update.openai_api_key = providerConfig.openai.key
+    if (providerConfig.groq.key) update.groq_api_key = providerConfig.groq.key
+    if (providerConfig.gemini.key) update.gemini_api_key = providerConfig.gemini.key
+    saveSettingsMutation.mutate(update)
+  }
+
+  function handlePull() {
+    if (!embeddingModel) return
+    setPullError(null)
+    pullMutation.mutate(embeddingModel)
+  }
+
+  const isSaving = saveSettingsMutation.isPending
+  const isPulling = pullMutation.isPending
 
   const providerMeta: Record<CloudProvider, { modelPlaceholder: string; hasKey: boolean; keyPlaceholder: string }> = {
     anthropic: { modelPlaceholder: 'claude-sonnet-4-6', hasKey: !!settings?.has_anthropic_key, keyPlaceholder: settings?.has_anthropic_key ? '••••••••  (leave blank to keep)' : 'sk-ant-…' },
@@ -159,18 +175,18 @@ const SettingsPage = () => {
 
       {/* ── Content ── */}
       <main className="mx-auto w-full max-w-screen-2xl flex-1 px-4 py-10 sm:px-6 lg:px-10">
-        {loading && <SettingsSkeleton />}
+        {isLoading && <SettingsSkeleton />}
 
-        {loadError && (
+        {isError && (
           <div className="flex items-center justify-center py-24">
             <div className="flex items-center gap-2 text-sm text-destructive">
               <AlertCircle className="size-4" />
-              {loadError}
+              Could not reach the backend. Make sure it is running.
             </div>
           </div>
         )}
 
-        {!loading && !loadError && (
+        {!isLoading && !isError && (
           <>
             <div className="mb-8">
               <h1 className="text-2xl font-bold tracking-tight">Settings</h1>
@@ -275,8 +291,8 @@ const SettingsPage = () => {
                         <Dropdown
                           className="flex-1"
                           options={[
-                            ...embeddingModels.map(m => ({ value: m.id, label: `${m.name} (${m.size})` })),
-                            ...(embeddingModel && !embeddingModels.find(m => m.id === embeddingModel)
+                            ...embeddingModels.map((m: EmbeddingModel) => ({ value: m.id, label: `${m.name} (${m.size})` })),
+                            ...(embeddingModel && !embeddingModels.find((m: EmbeddingModel) => m.id === embeddingModel)
                               ? [{ value: embeddingModel, label: embeddingModel }]
                               : []),
                           ]}
@@ -296,21 +312,21 @@ const SettingsPage = () => {
                         variant="outline"
                         size="lg"
                         onClick={handlePull}
-                        disabled={pullState === 'pulling' || !embeddingModel}
+                        disabled={isPulling || !embeddingModel}
                         title="Download and activate model"
                         className={cn(
                           'gap-1.5 px-3',
                           pullState === 'done' && 'border-emerald-500/30 bg-emerald-500/10 text-emerald-400 hover:bg-emerald-500/15',
                         )}
                       >
-                        {pullState === 'pulling' ? (
+                        {isPulling ? (
                           <RefreshCw className="size-3.5 animate-spin" />
                         ) : pullState === 'done' ? (
                           <Check className="size-3.5" />
                         ) : (
                           <Download className="size-3.5" />
                         )}
-                        {pullState === 'pulling' ? 'Downloading…' : pullState === 'done' ? 'Ready' : 'Download & Activate'}
+                        {isPulling ? 'Downloading…' : pullState === 'done' ? 'Ready' : 'Download & Activate'}
                       </Button>
                     </div>
                     {settings && embeddingModel !== settings.embedding_model && pullState === 'idle' && (
@@ -341,13 +357,13 @@ const SettingsPage = () => {
                 variant="default"
                 size="lg"
                 onClick={handleSave}
-                disabled={saveState === 'saving'}
+                disabled={isSaving}
                 className={cn(
                   'bg-indigo-500 px-6 text-white hover:bg-indigo-600',
                   saveState === 'saved' && 'bg-emerald-500/15 text-emerald-400 hover:bg-emerald-500/20',
                 )}
               >
-                {saveState === 'saving' ? 'Saving…' : saveState === 'saved' ? '✓ Saved' : 'Save settings'}
+                {isSaving ? 'Saving…' : saveState === 'saved' ? '✓ Saved' : 'Save settings'}
               </Button>
 
               {saveState === 'error' && saveError && (

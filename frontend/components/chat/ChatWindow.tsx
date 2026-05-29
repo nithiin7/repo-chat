@@ -3,22 +3,17 @@
 import { useState, useRef, useEffect, useCallback } from 'react'
 import Link from 'next/link'
 import { motion } from 'framer-motion'
-import { ArrowLeft, GitFork, PanelLeftClose, PanelLeftOpen, SendHorizontal, Square, Sparkles } from 'lucide-react'
-import { Button } from '@/components/ui/button'
+import { ArrowLeft, GitFork, PanelLeftClose, PanelLeftOpen } from 'lucide-react'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { ThemeToggle } from '@/components/ui/theme-toggle'
 import LLMModeToggle from './LLMModeToggle'
 import MessageBubble from './MessageBubble'
 import ChatSidebar from './ChatSidebar'
-import { chatStream, getChatMessages } from '@/lib/api'
-import { cn } from '@/lib/utils'
+import ChatEmptyState from './ChatEmptyState'
+import ChatInput from '@/components/common/ChatInput'
+import { chatStream, getChatMessages, listChats } from '@/lib/api/chats'
+import { queryKeys } from '@/lib/api/queryKeys'
 import type { Chat, ChatMessage, LLMMode, Message, Repo } from '@/types'
-
-const SUGGESTIONS = [
-  'What does this codebase do?',
-  'What are the main entry points?',
-  'How is authentication handled?',
-  'Explain the folder structure',
-]
 
 function dbMessagesToUi(dbMessages: ChatMessage[]): Message[] {
   return dbMessages.map((m) => ({
@@ -38,30 +33,30 @@ interface ChatWindowProps {
 }
 
 const ChatWindow = ({ repo, repoId, chatId, chats: initialChats, initialMessages }: ChatWindowProps) => {
+  const queryClient = useQueryClient()
+
   const [activeChatId, setActiveChatId] = useState(chatId)
   const [messages, setMessages] = useState<Message[]>(() => dbMessagesToUi(initialMessages))
   const [mode, setMode] = useState<LLMMode>('local')
   const [input, setInput] = useState('')
   const [streaming, setStreaming] = useState(false)
   const [sidebarOpen, setSidebarOpen] = useState(true)
-  const [chats, setChats] = useState<Chat[]>(initialChats)
+
+  // Seed chats cache from server-fetched data; ChatSidebar shares this query key
+  useQuery({
+    queryKey: queryKeys.chats(repoId),
+    queryFn: () => listChats(repoId),
+    initialData: initialChats,
+  })
 
   const cancelRef = useRef<(() => void) | null>(null)
   const scrollRef = useRef<HTMLDivElement>(null)
-  const textareaRef = useRef<HTMLTextAreaElement>(null)
   const userScrolledUp = useRef(false)
 
   const displayName =
     repo?.name ||
     repo?.url.replace(/^https?:\/\//, '').split('/').slice(1, 3).join('/') ||
     repoId
-
-  useEffect(() => {
-    const el = textareaRef.current
-    if (!el) return
-    el.style.height = 'auto'
-    el.style.height = `${Math.min(el.scrollHeight, 180)}px`
-  }, [input])
 
   useEffect(() => {
     if (userScrolledUp.current) return
@@ -75,22 +70,24 @@ const ChatWindow = ({ repo, repoId, chatId, chats: initialChats, initialMessages
     userScrolledUp.current = el.scrollHeight - el.scrollTop - el.clientHeight > 80
   }
 
-  // Switch to a different chat without a full page reload
   const handleSelectChat = useCallback(async (chat: Chat) => {
     if (chat.id === activeChatId) return
     setActiveChatId(chat.id)
     setMessages([])
     setInput('')
     userScrolledUp.current = false
-    // Update the URL so the page is bookmarkable, without triggering a server navigation
     window.history.pushState(null, '', `/chat/${repoId}/${chat.id}`)
     try {
-      const msgs = await getChatMessages(chat.id)
+      const msgs = await queryClient.fetchQuery({
+        queryKey: queryKeys.chatMessages(chat.id),
+        queryFn: () => getChatMessages(chat.id),
+        staleTime: 5 * 60 * 1000,
+      })
       setMessages(dbMessagesToUi(msgs))
     } catch {
       setMessages([])
     }
-  }, [activeChatId, repoId])
+  }, [activeChatId, repoId, queryClient])
 
   const submit = useCallback(
     (question: string) => {
@@ -107,8 +104,8 @@ const ChatWindow = ({ repo, repoId, chatId, chats: initialChats, initialMessages
         { id: crypto.randomUUID(), role: 'assistant', content: '', streaming: true },
       ])
 
-      // Optimistically update the sidebar title on the first message
-      setChats((prev) =>
+      // Optimistically update sidebar title on the first message
+      queryClient.setQueryData<Chat[]>(queryKeys.chats(repoId), (prev = []) =>
         prev.map((c) =>
           c.id === activeChatId && c.title === 'New Chat'
             ? { ...c, title: q.slice(0, 60).trimEnd() }
@@ -140,7 +137,6 @@ const ChatWindow = ({ repo, repoId, chatId, chats: initialChats, initialMessages
           })
         },
         () => {
-          // [CONTENT_DONE]: answer text is complete, suggestions are being generated
           setMessages((prev) => {
             const last = prev[prev.length - 1]
             if (!last || last.role !== 'assistant') return prev
@@ -165,7 +161,6 @@ const ChatWindow = ({ repo, repoId, chatId, chats: initialChats, initialMessages
           cancelRef.current = null
         },
         () => {
-          // [DONE]: stream fully closed; clear any remaining loading states
           setMessages((prev) => {
             const last = prev[prev.length - 1]
             if (!last || last.role !== 'assistant') return prev
@@ -173,12 +168,14 @@ const ChatWindow = ({ repo, repoId, chatId, chats: initialChats, initialMessages
           })
           setStreaming(false)
           cancelRef.current = null
+          // Invalidate so next visit to this chat fetches fresh persisted messages
+          void queryClient.invalidateQueries({ queryKey: queryKeys.chatMessages(activeChatId) })
         },
       )
 
       cancelRef.current = cancel
     },
-    [streaming, mode, repoId, activeChatId],
+    [streaming, mode, repoId, activeChatId, queryClient],
   )
 
   const handleStop = () => {
@@ -190,13 +187,6 @@ const ChatWindow = ({ repo, repoId, chatId, chats: initialChats, initialMessages
       return [...prev.slice(0, -1), { ...last, streaming: false }]
     })
     setStreaming(false)
-  }
-
-  const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
-    if (e.key === 'Enter' && !e.shiftKey) {
-      e.preventDefault()
-      submit(input)
-    }
   }
 
   return (
@@ -253,16 +243,14 @@ const ChatWindow = ({ repo, repoId, chatId, chats: initialChats, initialMessages
         {/* Sidebar */}
         <motion.aside
           initial={false}
-          animate={{ width: sidebarOpen ? 220 : 0, opacity: sidebarOpen ? 1 : 0 }} // framer-motion needs px values
+          animate={{ width: sidebarOpen ? 260 : 0, opacity: sidebarOpen ? 1 : 0 }}
           transition={{ duration: 0.2, ease: [0.25, 0.1, 0.25, 1] }}
           className="shrink-0 overflow-hidden border-r border-border"
         >
-          <div className="w-55 h-full">
+          <div className="w-65 h-full">
             <ChatSidebar
               repoId={repoId}
               activeChatId={activeChatId}
-              chats={chats}
-              onChatsChange={setChats}
               onSelectChat={handleSelectChat}
             />
           </div>
@@ -277,43 +265,7 @@ const ChatWindow = ({ repo, repoId, chatId, chats: initialChats, initialMessages
             className="flex-1 overflow-y-auto"
           >
             {messages.length === 0 ? (
-              <div className="flex h-full flex-col items-center justify-center gap-6 px-4 pb-16 pt-8 text-center">
-                <motion.div
-                  initial={{ opacity: 0, scale: 0.8 }}
-                  animate={{ opacity: 1, scale: 1 }}
-                  transition={{ duration: 0.4, ease: [0.25, 0.1, 0.25, 1] }}
-                  className="flex size-14 items-center justify-center rounded-2xl border border-border bg-card text-indigo-400"
-                >
-                  <Sparkles className="size-6" />
-                </motion.div>
-                <motion.div
-                  initial={{ opacity: 0, y: 10 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ duration: 0.4, delay: 0.1, ease: [0.25, 0.1, 0.25, 1] }}
-                >
-                  <p className="font-semibold text-foreground">Ask anything about this codebase</p>
-                  <p className="mt-1 text-sm text-muted-foreground">
-                    {repo
-                      ? `${repo.file_count.toLocaleString()} files indexed · ${mode === 'local' ? 'local LLM' : 'cloud LLM'}`
-                      : 'Repository is indexed and ready'}
-                  </p>
-                </motion.div>
-                <div className="grid w-full max-w-lg grid-cols-1 gap-2 sm:grid-cols-2">
-                  {SUGGESTIONS.map((s, i) => (
-                    <motion.button
-                      key={s}
-                      initial={{ opacity: 0, y: 8 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      transition={{ duration: 0.3, delay: 0.18 + i * 0.06, ease: [0.25, 0.1, 0.25, 1] }}
-                      whileHover={{ y: -2 }}
-                      onClick={() => submit(s)}
-                      className="cursor-pointer rounded-xl border border-border bg-card/60 px-4 py-3 text-left text-sm text-muted-foreground transition-[border-color,background-color,color] duration-150 hover:border-indigo-500/30 hover:bg-card hover:text-foreground"
-                    >
-                      {s}
-                    </motion.button>
-                  ))}
-                </div>
-              </div>
+              <ChatEmptyState repo={repo} mode={mode} onSuggestionClick={submit} />
             ) : (
               <div className="mx-auto max-w-3xl px-4 py-8">
                 {messages.map((msg) => (
@@ -324,69 +276,19 @@ const ChatWindow = ({ repo, repoId, chatId, chats: initialChats, initialMessages
             <div className="h-4" />
           </div>
 
-          {/* ── Input bar ── */}
           <motion.div
             initial={{ opacity: 0, y: 8 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.3, delay: 0.1, ease: [0.25, 0.1, 0.25, 1] }}
-            className="shrink-0 border-t border-border bg-background/90 px-4 py-4 backdrop-blur-md"
           >
-            <form
-              onSubmit={(e) => {
-                e.preventDefault()
-                submit(input)
-              }}
-              className="mx-auto flex max-w-3xl items-end gap-2"
-            >
-              <div
-                className={cn(
-                  'flex flex-1 items-end rounded-xl border bg-card px-4 py-2.5 transition-colors duration-150',
-                  streaming
-                    ? 'border-border/40'
-                    : 'border-border focus-within:border-indigo-500/40',
-                )}
-              >
-                <textarea
-                  ref={textareaRef}
-                  value={input}
-                  onChange={(e) => setInput(e.target.value)}
-                  onKeyDown={handleKeyDown}
-                  disabled={streaming}
-                  placeholder={streaming ? 'Responding…' : 'Ask about this codebase…'}
-                  rows={1}
-                  className="max-h-44 flex-1 resize-none bg-transparent py-0.5 text-sm leading-relaxed text-foreground placeholder:text-muted-foreground outline-none disabled:opacity-40"
-                />
-              </div>
-
-              {streaming ? (
-                <Button
-                  type="button"
-                  onClick={handleStop}
-                  size="icon-lg"
-                  className="h-auto w-9 self-stretch border border-border bg-card text-foreground hover:bg-muted"
-                  aria-label="Stop generating"
-                >
-                  <Square className="size-4 fill-current" />
-                </Button>
-              ) : (
-                <Button
-                  type="submit"
-                  size="icon-lg"
-                  disabled={!input.trim()}
-                  aria-label="Send message"
-                  className="h-auto w-9 self-stretch"
-                >
-                  <SendHorizontal className="size-4" />
-                </Button>
-              )}
-            </form>
-
-            <p className="mt-2.5 text-center text-[11px] text-muted-foreground/50">
-              {mode === 'local'
-                ? '⚡ Local — no data leaves your machine'
-                : '☁ Cloud — data sent to LLM API'}
-              &nbsp;·&nbsp;Enter to send · Shift+Enter for newline
-            </p>
+            <ChatInput
+              input={input}
+              onChange={setInput}
+              onSubmit={() => submit(input)}
+              onStop={handleStop}
+              streaming={streaming}
+              mode={mode}
+            />
           </motion.div>
         </div>
       </div>

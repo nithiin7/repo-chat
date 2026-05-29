@@ -1,32 +1,26 @@
 'use client'
 
 import { useState, useRef } from 'react'
-import { useRouter } from 'next/navigation'
+import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { AnimatePresence, motion } from 'framer-motion'
 import { Loader2, CheckCircle2, AlertCircle, ArrowRight, Link2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
-import { indexRepo } from '@/lib/api'
+import { indexRepo } from '@/lib/api/repos'
+import { queryKeys } from '@/lib/api/queryKeys'
 import { cn } from '@/lib/utils'
 
 type Status = 'idle' | 'indexing' | 'success' | 'error'
 
 const RepoInput = () => {
-  const router = useRouter()
+  const queryClient = useQueryClient()
   const inputRef = useRef<HTMLInputElement>(null)
   const [url, setUrl] = useState('')
   const [status, setStatus] = useState<Status>('idle')
   const [feedback, setFeedback] = useState<{ message: string; sub?: string; variant: 'success' | 'error' } | null>(null)
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
-    const trimmed = url.trim()
-    if (!trimmed || status === 'indexing') return
-
-    setStatus('indexing')
-    setFeedback(null)
-
-    try {
-      const result = await indexRepo({ repo_url: trimmed })
+  const { mutate: index } = useMutation({
+    mutationFn: (repoUrl: string) => indexRepo({ repo_url: repoUrl }),
+    onSuccess: (result) => {
       setUrl('')
       setStatus('success')
       setFeedback({
@@ -34,12 +28,13 @@ const RepoInput = () => {
         sub: 'Your repository is ready — open a chat below',
         variant: 'success',
       })
-      router.refresh()
+      void queryClient.invalidateQueries({ queryKey: queryKeys.repos() })
       setTimeout(() => {
         setStatus('idle')
         setFeedback(null)
       }, 5000)
-    } catch (err) {
+    },
+    onError: (err) => {
       setStatus('error')
       setFeedback({
         message: err instanceof Error ? err.message : 'Failed to index repository',
@@ -51,7 +46,16 @@ const RepoInput = () => {
         setFeedback(null)
         inputRef.current?.focus()
       }, 6000)
-    }
+    },
+  })
+
+  const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault()
+    const trimmed = url.trim()
+    if (!trimmed || status === 'indexing') return
+    setStatus('indexing')
+    setFeedback(null)
+    index(trimmed)
   }
 
   const borderColor = {

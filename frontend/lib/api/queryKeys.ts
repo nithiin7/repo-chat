@@ -1,0 +1,9 @@
+export const queryKeys = {
+  repos: () => ['repos'] as const,
+  repoStatus: (repoId: string) => ['repos', repoId, 'status'] as const,
+  chats: (repoId: string) => ['chats', repoId] as const,
+  chatMessages: (chatId: string) => ['chatMessages', chatId] as const,
+  settings: () => ['settings'] as const,
+  ollamaModels: () => ['ollamaModels'] as const,
+  embeddingModels: () => ['embeddingModels'] as const,
+}

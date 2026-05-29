@@ -2,7 +2,7 @@ import RepoList from '@/components/repo/RepoList'
 import RepoInput from '@/components/repo/RepoInput'
 import { NavBar } from '@/components/ui/nav-bar'
 import { Footer } from '@/components/ui/footer'
-import { listRepos } from '@/lib/api'
+import { listRepos } from '@/lib/api/repos'
 import type { Repo } from '@/types'
 
 export const dynamic = 'force-dynamic'
@@ -44,7 +44,7 @@ export default async function DashboardPage() {
 
       {/* Repo list */}
       <main className="mx-auto w-full max-w-6xl flex-1 border-t border-border/40 px-4 py-10 sm:px-6 lg:px-10">
-        <RepoList repos={repos} />
+        <RepoList initialRepos={repos} />
       </main>
 
       <Footer />

@@ -1,47 +1,48 @@
 'use client'
 
-import { useState, useTransition } from 'react'
+import { useState } from 'react'
 import { MessageSquarePlus, Trash2, Check, X, Pencil } from 'lucide-react'
 import { motion, AnimatePresence } from 'framer-motion'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { cn } from '@/lib/utils'
-import { createChat, deleteChatSession, renameChat } from '@/lib/api'
+import { createChat, deleteChatSession, listChats, renameChat } from '@/lib/api/chats'
+import { queryKeys } from '@/lib/api/queryKeys'
 import type { Chat } from '@/types'
 
 interface ChatSidebarProps {
   repoId: string
   activeChatId: string
-  chats: Chat[]
-  onChatsChange: (chats: Chat[]) => void
   onSelectChat: (chat: Chat) => void
 }
 
-const ChatSidebar = ({
-  repoId,
-  activeChatId,
-  chats,
-  onChatsChange,
-  onSelectChat,
-}: ChatSidebarProps) => {
-  const [isPending, startTransition] = useTransition()
+const ChatSidebar = ({ repoId, activeChatId, onSelectChat }: ChatSidebarProps) => {
+  const queryClient = useQueryClient()
+  const { data: chats = [] } = useQuery({
+    queryKey: queryKeys.chats(repoId),
+    queryFn: () => listChats(repoId),
+  })
+
+  const [creating, setCreating] = useState(false)
   const [editingId, setEditingId] = useState<string | null>(null)
   const [editValue, setEditValue] = useState('')
   const [deletingId, setDeletingId] = useState<string | null>(null)
 
-  const handleNewChat = () => {
+  const handleNewChat = async () => {
     const emptyChat = chats.find((c) => c.title === 'New Chat')
     if (emptyChat) {
       onSelectChat(emptyChat)
       return
     }
-    startTransition(async () => {
-      try {
-        const chat = await createChat(repoId)
-        onChatsChange([chat, ...chats])
-        onSelectChat(chat)
-      } catch {
-        // Silently ignore — backend may be unreachable
-      }
-    })
+    setCreating(true)
+    try {
+      const chat = await createChat(repoId)
+      queryClient.setQueryData<Chat[]>(queryKeys.chats(repoId), (old = []) => [chat, ...old])
+      onSelectChat(chat)
+    } catch {
+      // Silently ignore — backend may be unreachable
+    } finally {
+      setCreating(false)
+    }
   }
 
   const handleDelete = async (e: React.MouseEvent, id: string) => {
@@ -52,15 +53,15 @@ const ChatSidebar = ({
       const updated = chats.filter((c) => c.id !== id)
       if (id === activeChatId) {
         if (updated.length > 0) {
-          onChatsChange(updated)
+          queryClient.setQueryData(queryKeys.chats(repoId), updated)
           onSelectChat(updated[0])
         } else {
           const fresh = await createChat(repoId)
-          onChatsChange([fresh])
+          queryClient.setQueryData(queryKeys.chats(repoId), [fresh])
           onSelectChat(fresh)
         }
       } else {
-        onChatsChange(updated)
+        queryClient.setQueryData(queryKeys.chats(repoId), updated)
       }
     } catch {
       // Silently ignore
@@ -83,7 +84,9 @@ const ChatSidebar = ({
     }
     try {
       const updated = await renameChat(id, trimmed)
-      onChatsChange(chats.map((c) => (c.id === id ? updated : c)))
+      queryClient.setQueryData<Chat[]>(queryKeys.chats(repoId), (old = []) =>
+        old.map((c) => (c.id === id ? updated : c)),
+      )
     } catch {
       // Silently ignore
     } finally {
@@ -105,8 +108,8 @@ const ChatSidebar = ({
       <div className="flex items-center justify-between px-3 py-3">
         <span className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Chats</span>
         <button
-          onClick={handleNewChat}
-          disabled={isPending}
+          onClick={() => void handleNewChat()}
+          disabled={creating}
           title="New chat"
           className="flex size-7 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground disabled:opacity-40"
         >

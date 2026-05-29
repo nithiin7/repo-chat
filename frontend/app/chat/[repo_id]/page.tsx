@@ -1,5 +1,5 @@
 import { redirect } from 'next/navigation'
-import { createChat, listChats } from '@/lib/api'
+import { createChat, listChats } from '@/lib/api/chats'
 
 export const dynamic = 'force-dynamic'
 

@@ -1,11 +1,20 @@
 'use client'
 
+import { useQuery } from '@tanstack/react-query'
 import { motion } from 'framer-motion'
 import { BookOpen } from 'lucide-react'
 import RepoCard from './RepoCard'
+import { listRepos } from '@/lib/api/repos'
+import { queryKeys } from '@/lib/api/queryKeys'
 import type { Repo } from '@/types'
 
-const RepoList = ({ repos }: { repos: Repo[] }) => {
+const RepoList = ({ initialRepos }: { initialRepos: Repo[] }) => {
+  const { data: repos = [] } = useQuery({
+    queryKey: queryKeys.repos(),
+    queryFn: listRepos,
+    initialData: initialRepos,
+  })
+
   if (repos.length === 0) {
     return (
       <div className="flex flex-col items-center gap-4 py-20 text-center">
