@@ -2,6 +2,7 @@
 
 import { Check, Eye, EyeOff } from 'lucide-react'
 import { Input } from '@/components/ui/input'
+import { Button } from '@/components/ui/button'
 import { Field } from './section'
 
 export const KeyBadge = () => (
@@ -32,13 +33,15 @@ export const KeyInput = ({
       placeholder={placeholder}
       className="pr-10"
     />
-    <button
+    <Button
       type="button"
+      variant="ghost"
+      size="icon-sm"
       onClick={onToggleShow}
-      className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground transition-colors hover:text-foreground"
+      className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground"
     >
       {show ? <EyeOff className="size-3.5" /> : <Eye className="size-3.5" />}
-    </button>
+    </Button>
   </div>
 )
 

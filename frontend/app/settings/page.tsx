@@ -15,6 +15,14 @@ import type { CloudProvider, EmbeddingModel, Settings, SettingsUpdate } from '@/
 import { cn } from '@/lib/utils'
 
 type SaveState = 'idle' | 'saving' | 'saved' | 'error'
+type ProviderCfg = { model: string; key: string; baseUrl?: string }
+
+const CLOUD_PROVIDERS: { value: CloudProvider; label: string }[] = [
+  { value: 'anthropic', label: 'Anthropic' },
+  { value: 'openai', label: 'OpenAI' },
+  { value: 'groq', label: 'Groq' },
+  { value: 'gemini', label: 'Gemini' },
+]
 
 const SettingsPage = () => {
   const [settings, setSettings] = useState<Settings | null>(null)
@@ -24,19 +32,13 @@ const SettingsPage = () => {
 
   const [ollamaModel, setOllamaModel] = useState('')
   const [cloudProvider, setCloudProvider] = useState<CloudProvider>('anthropic')
-  const [anthropicModel, setAnthropicModel] = useState('')
-  const [anthropicKey, setAnthropicKey] = useState('')
-  const [showAnthropicKey, setShowAnthropicKey] = useState(false)
-  const [openaiModel, setOpenaiModel] = useState('')
-  const [openaiBaseUrl, setOpenaiBaseUrl] = useState('')
-  const [openaiKey, setOpenaiKey] = useState('')
-  const [showOpenaiKey, setShowOpenaiKey] = useState(false)
-  const [groqModel, setGroqModel] = useState('')
-  const [groqKey, setGroqKey] = useState('')
-  const [showGroqKey, setShowGroqKey] = useState(false)
-  const [geminiModel, setGeminiModel] = useState('')
-  const [geminiKey, setGeminiKey] = useState('')
-  const [showGeminiKey, setShowGeminiKey] = useState(false)
+  const [providerConfig, setProviderConfig] = useState<Record<CloudProvider, ProviderCfg>>({
+    anthropic: { model: '', key: '' },
+    openai: { model: '', key: '', baseUrl: '' },
+    groq: { model: '', key: '' },
+    gemini: { model: '', key: '' },
+  })
+  const [showKey, setShowKey] = useState(false)
 
   const [saveState, setSaveState] = useState<SaveState>('idle')
   const [saveError, setSaveError] = useState<string | null>(null)
@@ -54,11 +56,12 @@ const SettingsPage = () => {
         setOllamaModels(models)
         setOllamaModel(s.ollama_model)
         setCloudProvider(s.cloud_provider)
-        setAnthropicModel(s.anthropic_model)
-        setOpenaiModel(s.openai_model)
-        setOpenaiBaseUrl(s.openai_base_url)
-        setGroqModel(s.groq_model)
-        setGeminiModel(s.gemini_model)
+        setProviderConfig({
+          anthropic: { model: s.anthropic_model, key: '' },
+          openai: { model: s.openai_model, key: '', baseUrl: s.openai_base_url },
+          groq: { model: s.groq_model, key: '' },
+          gemini: { model: s.gemini_model, key: '' },
+        })
         setEmbeddingModels(embedModels)
         setEmbeddingModel(s.embedding_model)
       } catch {
@@ -69,6 +72,9 @@ const SettingsPage = () => {
     }
     load()
   }, [])
+
+  const setActiveField = (field: keyof ProviderCfg, value: string) =>
+    setProviderConfig(c => ({ ...c, [cloudProvider]: { ...c[cloudProvider], [field]: value } }))
 
   async function refreshOllamaModels() {
     const models = await getOllamaModels()
@@ -82,23 +88,26 @@ const SettingsPage = () => {
       const update: SettingsUpdate = {
         ollama_model: ollamaModel || undefined,
         cloud_provider: cloudProvider,
-        anthropic_model: anthropicModel || undefined,
-        openai_model: openaiModel || undefined,
-        openai_base_url: openaiBaseUrl || undefined,
-        groq_model: groqModel || undefined,
-        gemini_model: geminiModel || undefined,
+        anthropic_model: providerConfig.anthropic.model || undefined,
+        openai_model: providerConfig.openai.model || undefined,
+        openai_base_url: providerConfig.openai.baseUrl || undefined,
+        groq_model: providerConfig.groq.model || undefined,
+        gemini_model: providerConfig.gemini.model || undefined,
       }
-      if (anthropicKey) update.anthropic_api_key = anthropicKey
-      if (openaiKey) update.openai_api_key = openaiKey
-      if (groqKey) update.groq_api_key = groqKey
-      if (geminiKey) update.gemini_api_key = geminiKey
+      if (providerConfig.anthropic.key) update.anthropic_api_key = providerConfig.anthropic.key
+      if (providerConfig.openai.key) update.openai_api_key = providerConfig.openai.key
+      if (providerConfig.groq.key) update.groq_api_key = providerConfig.groq.key
+      if (providerConfig.gemini.key) update.gemini_api_key = providerConfig.gemini.key
 
       const updated = await updateSettings(update)
       setSettings(updated)
-      setAnthropicKey('')
-      setOpenaiKey('')
-      setGroqKey('')
-      setGeminiKey('')
+      setProviderConfig(c => ({
+        ...c,
+        anthropic: { ...c.anthropic, key: '' },
+        openai: { ...c.openai, key: '' },
+        groq: { ...c.groq, key: '' },
+        gemini: { ...c.gemini, key: '' },
+      }))
       setSaveState('saved')
       setTimeout(() => setSaveState('idle'), 3000)
     } catch (err) {
@@ -120,6 +129,13 @@ const SettingsPage = () => {
       setPullError(err instanceof Error ? err.message : 'Failed to download model.')
       setPullState('error')
     }
+  }
+
+  const providerMeta: Record<CloudProvider, { modelPlaceholder: string; hasKey: boolean; keyPlaceholder: string }> = {
+    anthropic: { modelPlaceholder: 'claude-sonnet-4-6', hasKey: !!settings?.has_anthropic_key, keyPlaceholder: settings?.has_anthropic_key ? '••••••••  (leave blank to keep)' : 'sk-ant-…' },
+    openai: { modelPlaceholder: 'gpt-4o', hasKey: !!settings?.has_openai_key, keyPlaceholder: settings?.has_openai_key ? '••••••••  (leave blank to keep)' : 'sk-…' },
+    groq: { modelPlaceholder: 'llama-3.3-70b-versatile', hasKey: !!settings?.has_groq_key, keyPlaceholder: settings?.has_groq_key ? '••••••••  (leave blank to keep)' : 'gsk_…' },
+    gemini: { modelPlaceholder: 'gemini-2.0-flash', hasKey: !!settings?.has_gemini_key, keyPlaceholder: settings?.has_gemini_key ? '••••••••  (leave blank to keep)' : 'AIza…' },
   }
 
   return (
@@ -220,62 +236,27 @@ const SettingsPage = () => {
               >
                 <div className="space-y-5">
                   <Field label="Provider">
-                    <div className="flex items-center rounded-lg border border-border bg-card p-0.5 gap-0.5 self-start flex-wrap">
-                      {(['anthropic', 'openai', 'groq', 'gemini'] as CloudProvider[]).map(p => (
-                        <button
-                          key={p}
-                          type="button"
-                          onClick={() => setCloudProvider(p)}
-                          className={cn(
-                            'rounded-md px-4 py-1.5 text-xs font-medium transition-all duration-150',
-                            cloudProvider === p
-                              ? 'bg-indigo-500/15 text-indigo-400'
-                              : 'text-muted-foreground hover:text-foreground',
-                          )}
-                        >
-                          {p === 'anthropic' ? 'Anthropic' : p === 'openai' ? 'OpenAI' : p === 'groq' ? 'Groq' : 'Gemini'}
-                        </button>
-                      ))}
-                    </div>
+                    <Dropdown
+                      options={CLOUD_PROVIDERS}
+                      value={cloudProvider}
+                      onChange={v => { setCloudProvider(v as CloudProvider); setShowKey(false) }}
+                      className="w-40"
+                    />
                   </Field>
 
-                  {cloudProvider === 'anthropic' && (
-                    <ProviderFields
-                      model={anthropicModel} onModelChange={setAnthropicModel} modelPlaceholder="claude-sonnet-4-6"
-                      apiKey={anthropicKey} onApiKeyChange={setAnthropicKey}
-                      showKey={showAnthropicKey} onToggleKey={() => setShowAnthropicKey(v => !v)}
-                      keyPlaceholder={settings?.has_anthropic_key ? '••••••••  (leave blank to keep)' : 'sk-ant-…'}
-                      hasKey={!!settings?.has_anthropic_key}
-                    />
-                  )}
-                  {cloudProvider === 'openai' && (
-                    <ProviderFields
-                      model={openaiModel} onModelChange={setOpenaiModel} modelPlaceholder="gpt-4o"
-                      baseUrl={openaiBaseUrl} onBaseUrlChange={setOpenaiBaseUrl}
-                      apiKey={openaiKey} onApiKeyChange={setOpenaiKey}
-                      showKey={showOpenaiKey} onToggleKey={() => setShowOpenaiKey(v => !v)}
-                      keyPlaceholder={settings?.has_openai_key ? '••••••••  (leave blank to keep)' : 'sk-…'}
-                      hasKey={!!settings?.has_openai_key}
-                    />
-                  )}
-                  {cloudProvider === 'groq' && (
-                    <ProviderFields
-                      model={groqModel} onModelChange={setGroqModel} modelPlaceholder="llama-3.3-70b-versatile"
-                      apiKey={groqKey} onApiKeyChange={setGroqKey}
-                      showKey={showGroqKey} onToggleKey={() => setShowGroqKey(v => !v)}
-                      keyPlaceholder={settings?.has_groq_key ? '••••••••  (leave blank to keep)' : 'gsk_…'}
-                      hasKey={!!settings?.has_groq_key}
-                    />
-                  )}
-                  {cloudProvider === 'gemini' && (
-                    <ProviderFields
-                      model={geminiModel} onModelChange={setGeminiModel} modelPlaceholder="gemini-2.0-flash"
-                      apiKey={geminiKey} onApiKeyChange={setGeminiKey}
-                      showKey={showGeminiKey} onToggleKey={() => setShowGeminiKey(v => !v)}
-                      keyPlaceholder={settings?.has_gemini_key ? '••••••••  (leave blank to keep)' : 'AIza…'}
-                      hasKey={!!settings?.has_gemini_key}
-                    />
-                  )}
+                  <ProviderFields
+                    model={providerConfig[cloudProvider].model}
+                    onModelChange={v => setActiveField('model', v)}
+                    modelPlaceholder={providerMeta[cloudProvider].modelPlaceholder}
+                    baseUrl={cloudProvider === 'openai' ? (providerConfig.openai.baseUrl ?? '') : undefined}
+                    onBaseUrlChange={cloudProvider === 'openai' ? v => setActiveField('baseUrl', v) : undefined}
+                    apiKey={providerConfig[cloudProvider].key}
+                    onApiKeyChange={v => setActiveField('key', v)}
+                    showKey={showKey}
+                    onToggleKey={() => setShowKey(v => !v)}
+                    keyPlaceholder={providerMeta[cloudProvider].keyPlaceholder}
+                    hasKey={providerMeta[cloudProvider].hasKey}
+                  />
                 </div>
               </Section>
             </div>
@@ -310,16 +291,16 @@ const SettingsPage = () => {
                           className="flex-1"
                         />
                       )}
-                      <button
+                      <Button
                         type="button"
+                        variant="outline"
+                        size="lg"
                         onClick={handlePull}
                         disabled={pullState === 'pulling' || !embeddingModel}
                         title="Download and activate model"
                         className={cn(
-                          'flex items-center gap-1.5 rounded-md border px-3 py-2 text-sm font-medium transition-colors disabled:opacity-60',
-                          pullState === 'done'
-                            ? 'border-emerald-500/30 bg-emerald-500/10 text-emerald-400'
-                            : 'border-border text-muted-foreground hover:bg-muted hover:text-foreground',
+                          'gap-1.5 px-3',
+                          pullState === 'done' && 'border-emerald-500/30 bg-emerald-500/10 text-emerald-400 hover:bg-emerald-500/15',
                         )}
                       >
                         {pullState === 'pulling' ? (
@@ -330,7 +311,7 @@ const SettingsPage = () => {
                           <Download className="size-3.5" />
                         )}
                         {pullState === 'pulling' ? 'Downloading…' : pullState === 'done' ? 'Ready' : 'Download & Activate'}
-                      </button>
+                      </Button>
                     </div>
                     {settings && embeddingModel !== settings.embedding_model && pullState === 'idle' && (
                       <p className="mt-1.5 text-xs text-amber-400">
@@ -355,19 +336,19 @@ const SettingsPage = () => {
 
             {/* ── Save bar ── */}
             <div className="mt-8 flex items-center gap-4 border-t border-border pt-6">
-              <button
+              <Button
                 type="button"
+                variant="default"
+                size="lg"
                 onClick={handleSave}
                 disabled={saveState === 'saving'}
                 className={cn(
-                  'rounded-lg px-6 py-2.5 text-sm font-medium transition-all',
-                  saveState === 'saved'
-                    ? 'bg-emerald-500/15 text-emerald-400'
-                    : 'bg-indigo-500 text-white hover:bg-indigo-600 disabled:opacity-60',
+                  'bg-indigo-500 px-6 text-white hover:bg-indigo-600',
+                  saveState === 'saved' && 'bg-emerald-500/15 text-emerald-400 hover:bg-emerald-500/20',
                 )}
               >
                 {saveState === 'saving' ? 'Saving…' : saveState === 'saved' ? '✓ Saved' : 'Save settings'}
-              </button>
+              </Button>
 
               {saveState === 'error' && saveError && (
                 <p className="flex items-center gap-1.5 text-xs text-destructive">
