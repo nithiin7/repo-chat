@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react'
 import Link from 'next/link'
-import { ArrowLeft, Cpu, Cloud, AlertCircle, RefreshCw, Database, Download, Check } from 'lucide-react'
+import { ArrowLeft, Cpu, Cloud, AlertCircle, RefreshCw, Database, Download, Check, MessageSquarePlus } from 'lucide-react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { NavBar } from '@/components/ui/nav-bar'
 import { Input } from '@/components/ui/input'
@@ -58,6 +58,7 @@ const SettingsPage = () => {
   })
   const [showKey, setShowKey] = useState(false)
   const [embeddingModel, setEmbeddingModel] = useState('')
+  const [suggestRelatedQuestions, setSuggestRelatedQuestions] = useState(false)
 
   const [saveState, setSaveState] = useState<SaveState>('idle')
   const [saveError, setSaveError] = useState<string | null>(null)
@@ -76,6 +77,7 @@ const SettingsPage = () => {
       gemini: { model: settings.gemini_model, key: '' },
     })
     setEmbeddingModel(settings.embedding_model)
+    setSuggestRelatedQuestions(settings.suggest_related_questions)
   }, [settings])
 
   const saveSettingsMutation = useMutation({
@@ -135,6 +137,7 @@ const SettingsPage = () => {
     if (providerConfig.openai.key) update.openai_api_key = providerConfig.openai.key
     if (providerConfig.groq.key) update.groq_api_key = providerConfig.groq.key
     if (providerConfig.gemini.key) update.gemini_api_key = providerConfig.gemini.key
+    update.suggest_related_questions = suggestRelatedQuestions
     saveSettingsMutation.mutate(update)
   }
 
@@ -346,6 +349,49 @@ const SettingsPage = () => {
                       </p>
                     )}
                   </Field>
+                </div>
+              </Section>
+            </div>
+
+            {/* ── Chat Behaviour ── */}
+            <div className="mt-6">
+              <Section
+                icon={<MessageSquarePlus className="size-4 text-sky-400" />}
+                title="Chat Behaviour"
+                description="Fine-tune how the assistant responds during a chat session."
+              >
+                <div className="space-y-4">
+                  <div className="flex items-start justify-between gap-4">
+                    <div className="space-y-1">
+                      <p className="text-sm font-medium">Suggest related questions</p>
+                      <p className="text-xs text-muted-foreground">
+                        After each answer, generate a short list of follow-up questions you might want to ask.
+                      </p>
+                      <div className="flex items-start gap-1.5 rounded-md border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs text-amber-400">
+                        <AlertCircle className="mt-0.5 size-3 shrink-0" />
+                        <span>
+                          Enabling this makes an extra LLM call per message, which increases token usage and cost.
+                        </span>
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      role="switch"
+                      aria-checked={suggestRelatedQuestions}
+                      onClick={() => setSuggestRelatedQuestions(v => !v)}
+                      className={cn(
+                        'relative mt-0.5 inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
+                        suggestRelatedQuestions ? 'bg-indigo-500' : 'bg-muted',
+                      )}
+                    >
+                      <span
+                        className={cn(
+                          'pointer-events-none block size-4 rounded-full bg-white shadow-sm ring-0 transition-transform',
+                          suggestRelatedQuestions ? 'translate-x-4' : 'translate-x-0',
+                        )}
+                      />
+                    </button>
+                  </div>
                 </div>
               </Section>
             </div>

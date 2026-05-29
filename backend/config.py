@@ -36,6 +36,9 @@ class Settings(BaseSettings):
     # Embeddings
     embedding_model: str = "BAAI/bge-small-en-v1.5"
 
+    # Chat behaviour
+    suggest_related_questions: bool = False
+
     # ChromaDB
     chroma_persist_dir: str = "./chroma_db"
 

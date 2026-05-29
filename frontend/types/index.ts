@@ -84,6 +84,7 @@ export interface Settings {
   gemini_model: string;
   has_gemini_key: boolean;
   embedding_model: string;
+  suggest_related_questions: boolean;
 }
 
 export interface SettingsUpdate {
@@ -99,6 +100,7 @@ export interface SettingsUpdate {
   gemini_model?: string;
   gemini_api_key?: string;
   embedding_model?: string;
+  suggest_related_questions?: boolean;
 }
 
 export interface EmbeddingModel {

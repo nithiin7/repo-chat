@@ -6,6 +6,7 @@ from typing import AsyncGenerator
 from fastapi import APIRouter, HTTPException
 from fastapi.responses import StreamingResponse
 
+from backend.config import get_settings
 from backend.core.llm import LLMError, generate_suggestions, stream_answer
 from backend.core.retriever import SourceChunk, retrieve
 from backend.persistence import (
@@ -74,11 +75,12 @@ async def chat(body: ChatRequest):
                 )
             if not had_error and accumulated:
                 yield "data: [CONTENT_DONE]\n\n"
-                suggestions = await generate_suggestions(
-                    body.question, "".join(accumulated), body.mode
-                )
-                if suggestions:
-                    yield f"event: suggestions\ndata: {json.dumps(suggestions)}\n\n"
+                if get_settings().suggest_related_questions:
+                    suggestions = await generate_suggestions(
+                        body.question, "".join(accumulated), body.mode
+                    )
+                    if suggestions:
+                        yield f"event: suggestions\ndata: {json.dumps(suggestions)}\n\n"
             yield "data: [DONE]\n\n"
 
     return StreamingResponse(

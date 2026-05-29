@@ -31,6 +31,7 @@ def _build_settings_view() -> SettingsView:
         gemini_model=s.gemini_model,
         has_gemini_key=bool(s.gemini_api_key),
         embedding_model=s.embedding_model,
+        suggest_related_questions=s.suggest_related_questions,
     )
 
 
@@ -82,6 +83,9 @@ async def update_settings(body: SettingsUpdate):
         updates["gemini_model"] = body.gemini_model
     if body.gemini_api_key is not None:
         updates["gemini_api_key"] = body.gemini_api_key
+
+    if body.suggest_related_questions is not None:
+        updates["suggest_related_questions"] = body.suggest_related_questions
 
     if updates:
         save_settings_overlay(updates)
