@@ -17,7 +17,7 @@ export default function ChatError({
       {/* Top bar */}
       <div className="flex h-14 shrink-0 items-center border-b border-border/50 bg-background/80 px-4 backdrop-blur-md">
         <Link
-          href="/"
+          href="/dashboard"
           className={cn(buttonVariants({ variant: 'ghost', size: 'sm' }), 'text-muted-foreground')}
         >
           <ArrowLeft className="size-3.5" />
@@ -40,7 +40,7 @@ export default function ChatError({
             <RefreshCw className="size-3.5" />
             Try again
           </Button>
-          <Link href="/" className={cn(buttonVariants(), 'gap-2')}>
+          <Link href="/dashboard" className={cn(buttonVariants(), 'gap-2')}>
             <ArrowLeft className="size-3.5" />
             Back to repos
           </Link>

@@ -210,7 +210,7 @@ const ChatWindow = ({ repo, repoId, chatId, chats: initialChats, initialMessages
       >
         <div className="flex min-w-0 items-center gap-2.5">
           <Link
-            href="/"
+            href="/dashboard"
             aria-label="Back to repositories"
             className="flex size-8 shrink-0 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
           >
