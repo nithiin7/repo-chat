@@ -108,3 +108,15 @@ export interface EmbeddingModel {
   name: string;
   size: string;
 }
+
+export interface SearchResult {
+  file_path: string;
+  chunk: string;
+  score: number;
+}
+
+export interface SearchResponse {
+  repo_id: string;
+  query: string;
+  results: SearchResult[];
+}

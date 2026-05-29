@@ -6,4 +6,5 @@ export const queryKeys = {
   settings: () => ['settings'] as const,
   ollamaModels: () => ['ollamaModels'] as const,
   embeddingModels: () => ['embeddingModels'] as const,
+  search: (repoId: string, query: string, topK: number) => ['search', repoId, query, topK] as const,
 }

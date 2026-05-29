@@ -3,7 +3,7 @@
 import { useState, useRef, useEffect, useCallback } from 'react'
 import Link from 'next/link'
 import { motion } from 'framer-motion'
-import { ArrowLeft, GitFork, PanelLeftClose, PanelLeftOpen } from 'lucide-react'
+import { ArrowLeft, GitFork, PanelLeftClose, PanelLeftOpen, Search } from 'lucide-react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { ThemeToggle } from '@/components/ui/theme-toggle'
 import LLMModeToggle from './LLMModeToggle'
@@ -233,6 +233,13 @@ const ChatWindow = ({ repo, repoId, chatId, chats: initialChats, initialMessages
         </div>
 
         <div className="flex items-center gap-1.5">
+          <Link
+            href={`/search/${repoId}`}
+            aria-label="Search codebase"
+            className="flex size-8 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+          >
+            <Search className="size-4" />
+          </Link>
           <LLMModeToggle mode={mode} onChange={setMode} disabled={streaming} />
           <ThemeToggle />
         </div>

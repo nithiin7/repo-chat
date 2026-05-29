@@ -3,7 +3,7 @@
 import { useRouter } from 'next/navigation'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { motion } from 'framer-motion'
-import { GitFork, MessageSquare, Trash2, Loader2, FileCode2, Clock, RefreshCw } from 'lucide-react'
+import { GitFork, MessageSquare, Trash2, Loader2, FileCode2, Clock, RefreshCw, Search } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { checkRepoStatus, deleteRepo, indexRepo } from '@/lib/api/repos'
 import { queryKeys } from '@/lib/api/queryKeys'
@@ -144,14 +144,25 @@ const RepoCard = ({ repo, index = 0 }: { repo: Repo; index?: number }) => {
           </Button>
         </div>
       ) : (
-        <Button
-          onClick={() => router.push(`/chat/${repo.repo_id}`)}
-          size="sm"
-          className="mt-auto w-full gap-2"
-        >
-          <MessageSquare className="size-3.5" />
-          Open Chat
-        </Button>
+        <div className="mt-auto flex gap-2">
+          <Button
+            onClick={() => router.push(`/search/${repo.repo_id}`)}
+            size="sm"
+            variant="outline"
+            className="flex-1 gap-2"
+          >
+            <Search className="size-3.5" />
+            Search
+          </Button>
+          <Button
+            onClick={() => router.push(`/chat/${repo.repo_id}`)}
+            size="sm"
+            className="flex-1 gap-2"
+          >
+            <MessageSquare className="size-3.5" />
+            Open Chat
+          </Button>
+        </div>
       )}
     </motion.article>
   )

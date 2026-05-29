@@ -4,11 +4,12 @@ import shutil
 from datetime import datetime, timezone
 from pathlib import Path
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Query
 
 from backend.config import get_settings
 from backend.core.fetcher import FetchResult, RepoFetchError, fetch_repo, get_remote_head
 from backend.core.indexer import build_index, delete_index
+from backend.core.retriever import retrieve
 from backend.persistence import (
     create_chat,
     delete_chats_for_repo,
@@ -25,6 +26,8 @@ from backend.schemas import (
     IndexResponse,
     RepoInfo,
     RepoStatusResponse,
+    SearchResponse,
+    SearchResultItem,
 )
 
 router = APIRouter()
@@ -138,3 +141,20 @@ async def create_repo_chat(repo_id: str, body: CreateChatRequest = CreateChatReq
         raise HTTPException(status_code=404, detail=f"Repo '{repo_id}' not indexed.")
     chat = await asyncio.to_thread(create_chat, repo_id, body.title)
     return ChatInfo(**chat)
+
+
+@router.get("/repos/{repo_id}/search", response_model=SearchResponse)
+async def search_repo(
+    repo_id: str,
+    query: str = Query(..., min_length=1),
+    top_k: int = Query(default=10, ge=1, le=50),
+):
+    existing = await asyncio.to_thread(get_repo, repo_id)
+    if not existing:
+        raise HTTPException(status_code=404, detail=f"Repo '{repo_id}' not indexed.")
+    chunks = await asyncio.to_thread(retrieve, repo_id, query, top_k)
+    return SearchResponse(
+        repo_id=repo_id,
+        query=query,
+        results=[SearchResultItem(**c) for c in chunks],
+    )

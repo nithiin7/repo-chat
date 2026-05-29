@@ -19,6 +19,7 @@ Paste a repo URL. CodeLens clones it, indexes every source file into a vector st
 - **Multi-repo dashboard** — browse, switch between, and delete all indexed repos from one place
 - **Configurable embeddings** — uses `BAAI/bge-small-en-v1.5` locally by default; swap the model from settings
 - **Private repo support** — works with private GitHub repos (via token) and Bitbucket (via app password)
+- **Semantic code search** — search across the entire repo by intent, not keywords; results are ranked by embedding similarity with no LLM involved
 - **Streaming chat history** — each chat session retains message history so you can ask follow-up questions
 
 ---
@@ -125,6 +126,7 @@ All other text files are chunked with a sentence splitter fallback.
 | `POST` | `/chat` | Stream an answer over SSE |
 | `GET` | `/repos` | List all indexed repos |
 | `DELETE` | `/repos/{repo_id}` | Remove a repo and its index |
+| `GET` | `/repos/{repo_id}/search?query=...&top_k=10` | Semantic search — returns ranked code chunks by embedding similarity |
 
 ---
 

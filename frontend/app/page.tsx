@@ -10,6 +10,7 @@ import {
   GitFork,
   Zap,
   Database,
+  Search,
   ArrowRight,
 } from 'lucide-react'
 import { ThemeToggle } from '@/components/ui/theme-toggle'
@@ -52,6 +53,12 @@ const FEATURES = [
     title: 'Streaming responses',
     description:
       'Answers stream token-by-token via SSE so you see results immediately, even for long explanations.',
+  },
+  {
+    icon: <Search className="size-5 text-pink-400" />,
+    title: 'Semantic code search',
+    description:
+      'Search by intent, not keywords. Describe what you\'re looking for and get ranked code chunks by embedding similarity — no LLM needed.',
   },
 ]
 

@@ -102,3 +102,15 @@ class SettingsUpdate(BaseModel):
 
 class EmbeddingPullRequest(BaseModel):
     model: str
+
+
+class SearchResultItem(BaseModel):
+    file_path: str
+    chunk: str
+    score: float
+
+
+class SearchResponse(BaseModel):
+    repo_id: str
+    query: str
+    results: list[SearchResultItem]
