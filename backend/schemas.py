@@ -140,3 +140,20 @@ class NavigateResponse(BaseModel):
     query: str
     kind: str | None
     results: list[SymbolItem]
+
+
+class DepNode(BaseModel):
+    id: str    # POSIX path relative to repo root
+    label: str # filename only
+    ext: str   # e.g. ".py", ".ts"
+
+
+class DepEdge(BaseModel):
+    source: str  # node id
+    target: str  # node id
+
+
+class DepGraphResponse(BaseModel):
+    repo_id: str
+    nodes: list[DepNode]
+    edges: list[DepEdge]

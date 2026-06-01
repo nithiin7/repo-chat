@@ -142,3 +142,20 @@ export interface NavigateResponse {
   kind: string | null;
   results: SymbolItem[];
 }
+
+export interface DepNode {
+  id: string;
+  label: string;
+  ext: string;
+}
+
+export interface DepEdge {
+  source: string;
+  target: string;
+}
+
+export interface DepGraph {
+  repo_id: string;
+  nodes: DepNode[];
+  edges: DepEdge[];
+}

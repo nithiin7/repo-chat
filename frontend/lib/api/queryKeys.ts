@@ -8,4 +8,5 @@ export const queryKeys = {
   embeddingModels: () => ['embeddingModels'] as const,
   search: (repoId: string, query: string, topK: number) => ['search', repoId, query, topK] as const,
   navigate: (repoId: string, query: string, kind: string | undefined) => ['navigate', repoId, query, kind] as const,
+  deps: (repoId: string) => ['deps', repoId] as const,
 }

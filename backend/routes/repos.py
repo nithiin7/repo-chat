@@ -24,6 +24,9 @@ from backend.persistence import (
 from backend.schemas import (
     ChatInfo,
     CreateChatRequest,
+    DepEdge,
+    DepGraphResponse,
+    DepNode,
     IndexRequest,
     IndexResponse,
     NavigateResponse,
@@ -186,3 +189,32 @@ async def navigate_repo(
         kind=kind,
         results=[SymbolItem(**r) for r in rows],
     )
+
+
+@router.get("/repos/{repo_id}/deps", response_model=DepGraphResponse)
+async def get_dep_graph(repo_id: str):
+    existing = await asyncio.to_thread(get_repo, repo_id)
+    if not existing:
+        raise HTTPException(status_code=404, detail=f"Repo '{repo_id}' not found.")
+
+    from backend.core.dep_extractor import extract_dep_edges, walk_source_files
+
+    repo_root = Path(get_settings().repos_dir) / existing["name"]
+    if not repo_root.exists():
+        raise HTTPException(status_code=404, detail="Repo source directory not found on disk.")
+
+    file_paths = await asyncio.to_thread(walk_source_files, repo_root)
+    raw_edges = await asyncio.to_thread(extract_dep_edges, file_paths, repo_root)
+
+    referenced = {p for edge in raw_edges for p in edge}
+    nodes = [
+        DepNode(
+            id=p,
+            label=p.rsplit("/", 1)[-1],
+            ext=("." + p.rsplit(".", 1)[-1]) if "." in p.rsplit("/", 1)[-1] else "",
+        )
+        for p in sorted(referenced)
+    ]
+    edges = [DepEdge(source=s, target=t) for s, t in raw_edges]
+
+    return DepGraphResponse(repo_id=repo_id, nodes=nodes, edges=edges)
