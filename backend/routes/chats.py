@@ -16,11 +16,12 @@ from backend.persistence import (
     get_chat,
     get_repo,
     list_messages,
+    pin_chat,
     rename_chat,
     save_message,
     set_chat_title_if_default,
 )
-from backend.schemas import ChatInfo, ChatMessageInfo, ChatRequest, RenameChatRequest
+from backend.schemas import ChatInfo, ChatMessageInfo, ChatRequest, PinChatRequest, RenameChatRequest
 
 logger = logging.getLogger(__name__)
 
@@ -98,6 +99,16 @@ async def chat(body: ChatRequest):
             "X-Accel-Buffering": "no",
         },
     )
+
+
+@router.patch("/chats/{chat_id}/pin", response_model=ChatInfo)
+async def toggle_pin_chat(chat_id: str, body: PinChatRequest):
+    chat = await asyncio.to_thread(get_chat, chat_id)
+    if not chat:
+        raise HTTPException(status_code=404, detail=f"Chat '{chat_id}' not found.")
+    await asyncio.to_thread(pin_chat, chat_id, body.is_pinned)
+    updated = await asyncio.to_thread(get_chat, chat_id)
+    return ChatInfo(**updated)
 
 
 @router.patch("/chats/{chat_id}", response_model=ChatInfo)

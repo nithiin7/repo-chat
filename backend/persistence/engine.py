@@ -2,6 +2,7 @@ from pathlib import Path
 
 from sqlalchemy import event
 from sqlalchemy.engine import Engine
+from sqlalchemy import text
 from sqlmodel import SQLModel, create_engine
 
 from backend.config import get_settings
@@ -32,4 +33,11 @@ def _get_engine() -> Engine:
 
 def init_db() -> None:
     """Create tables if they don't exist. Call once at app startup."""
-    SQLModel.metadata.create_all(_get_engine())
+    engine = _get_engine()
+    SQLModel.metadata.create_all(engine)
+    # Add columns introduced after initial schema (safe no-op if already present)
+    with engine.connect() as conn:
+        cols = {row[1] for row in conn.execute(text("PRAGMA table_info(chats)"))}
+        if "is_pinned" not in cols:
+            conn.execute(text("ALTER TABLE chats ADD COLUMN is_pinned INTEGER NOT NULL DEFAULT 0"))
+            conn.commit()

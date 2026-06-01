@@ -4,6 +4,7 @@ from backend.persistence.chat import (
     delete_chats_for_repo,
     get_chat,
     list_chats,
+    pin_chat,
     rename_chat,
 )
 from backend.persistence.engine import init_db
@@ -21,6 +22,7 @@ __all__ = [
     "list_chats",
     "get_chat",
     "rename_chat",
+    "pin_chat",
     "delete_chat",
     "delete_chats_for_repo",
     "save_message",

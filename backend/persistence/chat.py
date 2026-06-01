@@ -22,7 +22,9 @@ def create_chat(repo_id: str, title: str = "New Chat") -> dict:
 def list_chats(repo_id: str) -> list[dict]:
     with Session(_get_engine()) as session:
         chats = session.exec(
-            select(Chat).where(Chat.repo_id == repo_id).order_by(Chat.updated_at.desc())
+            select(Chat)
+            .where(Chat.repo_id == repo_id)
+            .order_by(Chat.is_pinned.desc(), Chat.updated_at.desc())
         ).all()
     return [c.model_dump() for c in chats]
 
@@ -39,6 +41,15 @@ def rename_chat(chat_id: str, title: str) -> None:
         if chat:
             chat.title = title
             chat.updated_at = _now()
+            session.add(chat)
+            session.commit()
+
+
+def pin_chat(chat_id: str, is_pinned: bool) -> None:
+    with Session(_get_engine()) as session:
+        chat = session.get(Chat, chat_id)
+        if chat:
+            chat.is_pinned = is_pinned
             session.add(chat)
             session.commit()
 

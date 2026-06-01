@@ -13,6 +13,10 @@ export function renameChat(chatId: string, title: string): Promise<Chat> {
   return api.patch<Chat>(`/chats/${encodeURIComponent(chatId)}`, { title });
 }
 
+export function pinChat(chatId: string, isPinned: boolean): Promise<Chat> {
+  return api.patch<Chat>(`/chats/${encodeURIComponent(chatId)}/pin`, { is_pinned: isPinned });
+}
+
 export function deleteChatSession(chatId: string): Promise<{ status: string }> {
   return api.del<{ status: string }>(`/chats/${encodeURIComponent(chatId)}`);
 }

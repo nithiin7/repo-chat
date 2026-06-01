@@ -45,6 +45,7 @@ class ChatInfo(BaseModel):
     id: str
     repo_id: str
     title: str
+    is_pinned: bool = False
     created_at: str
     updated_at: str
 
@@ -55,6 +56,10 @@ class CreateChatRequest(BaseModel):
 
 class RenameChatRequest(BaseModel):
     title: str
+
+
+class PinChatRequest(BaseModel):
+    is_pinned: bool
 
 
 class ChatMessageInfo(BaseModel):
