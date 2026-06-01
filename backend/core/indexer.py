@@ -11,6 +11,7 @@ returns the existing count immediately without re-processing any files.
 import logging
 import re
 from collections import defaultdict
+from dataclasses import asdict
 from functools import lru_cache
 from pathlib import Path
 
@@ -22,6 +23,7 @@ from llama_index.embeddings.huggingface import HuggingFaceEmbedding
 from llama_index.vector_stores.chroma import ChromaVectorStore
 
 from backend.config import get_settings
+from backend.core.symbol_extractor import extract_symbols
 
 logger = logging.getLogger(__name__)
 
@@ -153,17 +155,37 @@ def build_index(file_paths: list[Path], repo_id: str) -> int:
 
     count = collection.count()
     logger.info("Stored %d chunks for repo '%s'.", count, repo_id)
+
+    # 4. Extract + persist symbols (AST-based, best-effort)
+    _index_symbols(file_paths, repo_id)
+
     return count
 
 
+def _index_symbols(file_paths: list[Path], repo_id: str) -> None:
+    from backend.persistence.symbol import delete_symbols, insert_symbols
+    try:
+        delete_symbols(repo_id)
+        symbols = extract_symbols(file_paths)
+        inserted = insert_symbols(repo_id, [asdict(s) for s in symbols])
+        logger.info("Indexed %d symbols for repo '%s'.", inserted, repo_id)
+    except Exception as exc:
+        logger.warning("Symbol indexing failed for '%s': %s", repo_id, exc)
+
+
 def delete_index(repo_id: str) -> None:
-    """Drop the ChromaDB collection for repo_id. No-ops if it doesn't exist."""
+    """Drop the ChromaDB collection and symbol rows for repo_id."""
+    from backend.persistence.symbol import delete_symbols
     name = _sanitize_name(repo_id)
     try:
         _get_chroma_client().delete_collection(name)
         logger.info("Deleted collection '%s'.", name)
     except Exception as exc:
         logger.warning("Could not delete collection '%s': %s", name, exc)
+    try:
+        delete_symbols(repo_id)
+    except Exception as exc:
+        logger.warning("Could not delete symbols for '%s': %s", repo_id, exc)
 
 
 # ---------------------------------------------------------------------------

@@ -11,6 +11,7 @@ import {
   Zap,
   Database,
   Search,
+  ListTree,
   ArrowRight,
 } from 'lucide-react'
 import { ThemeToggle } from '@/components/ui/theme-toggle'
@@ -59,6 +60,12 @@ const FEATURES = [
     title: 'Semantic code search',
     description:
       'Search by intent, not keywords. Describe what you\'re looking for and get ranked code chunks by embedding similarity — no LLM needed.',
+  },
+  {
+    icon: <ListTree className="size-5 text-violet-400" />,
+    title: 'Symbol navigator',
+    description:
+      'Browse every function, class, and method in the repo — extracted via AST parsing, not retrieval. Filter by kind, expand definitions inline, and jump straight to chat.',
   },
 ]
 

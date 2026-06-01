@@ -8,10 +8,14 @@ export const dynamic = 'force-dynamic'
 
 export default async function ChatPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ repo_id: string; chat_id: string }>
+  searchParams: Promise<Record<string, string | string[] | undefined>>
 }) {
   const { repo_id, chat_id } = await params
+  const sp = await searchParams
+  const initialQ = typeof sp.q === 'string' ? sp.q : undefined
 
   let repo: Repo | null = null
   let chats: Chat[] = []
@@ -39,6 +43,7 @@ export default async function ChatPage({
       chatId={chat_id}
       chats={chats}
       initialMessages={initialMessages}
+      initialQ={initialQ}
     />
   )
 }

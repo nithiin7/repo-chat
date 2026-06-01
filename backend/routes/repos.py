@@ -17,6 +17,8 @@ from backend.persistence import (
     get_repo,
     list_chats,
     list_repos,
+    list_symbols,
+    search_symbols,
     upsert_repo,
 )
 from backend.schemas import (
@@ -24,10 +26,12 @@ from backend.schemas import (
     CreateChatRequest,
     IndexRequest,
     IndexResponse,
+    NavigateResponse,
     RepoInfo,
     RepoStatusResponse,
     SearchResponse,
     SearchResultItem,
+    SymbolItem,
 )
 
 router = APIRouter()
@@ -157,4 +161,28 @@ async def search_repo(
         repo_id=repo_id,
         query=query,
         results=[SearchResultItem(**c) for c in chunks],
+    )
+
+
+@router.get("/repos/{repo_id}/navigate", response_model=NavigateResponse)
+async def navigate_repo(
+    repo_id: str,
+    query: str = Query(default="", min_length=0),
+    kind: str | None = Query(default=None, pattern="^(function|class|method)$"),
+    limit: int = Query(default=50, ge=1, le=200),
+):
+    existing = await asyncio.to_thread(get_repo, repo_id)
+    if not existing:
+        raise HTTPException(status_code=404, detail=f"Repo '{repo_id}' not indexed.")
+
+    if query.strip():
+        rows = await asyncio.to_thread(search_symbols, repo_id, query.strip(), kind, limit)
+    else:
+        rows = await asyncio.to_thread(list_symbols, repo_id, kind, limit)
+
+    return NavigateResponse(
+        repo_id=repo_id,
+        query=query,
+        kind=kind,
+        results=[SymbolItem(**r) for r in rows],
     )

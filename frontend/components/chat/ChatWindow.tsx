@@ -3,7 +3,7 @@
 import { useState, useRef, useEffect, useCallback } from 'react'
 import Link from 'next/link'
 import { motion } from 'framer-motion'
-import { ArrowLeft, GitFork, PanelLeftClose, PanelLeftOpen, Search } from 'lucide-react'
+import { ArrowLeft, ChevronDown, ChevronRight, GitFork, ListTree, PanelLeftClose, PanelLeftOpen, Search, X } from 'lucide-react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { ThemeToggle } from '@/components/ui/theme-toggle'
 import LLMModeToggle from './LLMModeToggle'
@@ -24,23 +24,45 @@ function dbMessagesToUi(dbMessages: ChatMessage[]): Message[] {
   }))
 }
 
+interface NavContext {
+  name: string
+  kind: string
+  file_path: string
+  start_line: number
+  signature: string
+  snippet: string
+}
+
 interface ChatWindowProps {
   repo: Repo | null
   repoId: string
   chatId: string
   chats: Chat[]
   initialMessages: ChatMessage[]
+  initialQ?: string
 }
 
-const ChatWindow = ({ repo, repoId, chatId, chats: initialChats, initialMessages }: ChatWindowProps) => {
+const ChatWindow = ({ repo, repoId, chatId, chats: initialChats, initialMessages, initialQ }: ChatWindowProps) => {
   const queryClient = useQueryClient()
 
   const [activeChatId, setActiveChatId] = useState(chatId)
   const [messages, setMessages] = useState<Message[]>(() => dbMessagesToUi(initialMessages))
   const [mode, setMode] = useState<LLMMode>('local')
-  const [input, setInput] = useState('')
+  const [input, setInput] = useState(initialQ ?? '')
   const [streaming, setStreaming] = useState(false)
   const [sidebarOpen, setSidebarOpen] = useState(true)
+  const [navContext, setNavContext] = useState<NavContext | null>(() => {
+    if (typeof window === 'undefined') return null
+    try {
+      const raw = sessionStorage.getItem('codelens_nav_context')
+      if (raw) {
+        sessionStorage.removeItem('codelens_nav_context')
+        return JSON.parse(raw) as NavContext
+      }
+    } catch {}
+    return null
+  })
+  const [navSnippetOpen, setNavSnippetOpen] = useState(false)
 
   // Seed chats cache from server-fetched data; ChatSidebar shares this query key
   useQuery({
@@ -234,6 +256,13 @@ const ChatWindow = ({ repo, repoId, chatId, chats: initialChats, initialMessages
 
         <div className="flex items-center gap-1.5">
           <Link
+            href={`/navigate/${repoId}`}
+            aria-label="Symbol navigator"
+            className="flex size-8 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+          >
+            <ListTree className="size-4" />
+          </Link>
+          <Link
             href={`/search/${repoId}`}
             aria-label="Search codebase"
             className="flex size-8 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
@@ -265,6 +294,59 @@ const ChatWindow = ({ repo, repoId, chatId, chats: initialChats, initialMessages
 
         {/* Main chat column */}
         <div className="flex flex-1 min-w-0 flex-col">
+          {/* Navigator context banner */}
+          {navContext && (
+            <div className="shrink-0 border-b border-violet-500/20 bg-violet-500/5 px-4 py-3">
+              <div className="mx-auto max-w-3xl">
+                <div className="flex items-start justify-between gap-3">
+                  <div className="flex min-w-0 flex-1 flex-col gap-1.5">
+                    {/* Title row */}
+                    <div className="flex items-center gap-2">
+                      <ListTree className="size-3.5 shrink-0 text-violet-400" />
+                      <span className="text-[10px] font-semibold uppercase tracking-widest text-violet-400">
+                        From symbol navigator
+                      </span>
+                    </div>
+                    {/* Symbol info */}
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span className="rounded bg-violet-500/15 px-1.5 py-0.5 font-mono text-[10px] font-semibold text-violet-400">
+                        {navContext.kind}
+                      </span>
+                      <span className="font-mono text-sm font-semibold text-foreground">
+                        {navContext.name}
+                      </span>
+                      <span className="font-mono text-xs text-muted-foreground">
+                        {navContext.file_path.split('/').slice(-2).join('/')}:{navContext.start_line}
+                      </span>
+                    </div>
+                    {/* Expandable snippet */}
+                    <button
+                      onClick={() => setNavSnippetOpen((v) => !v)}
+                      className="flex cursor-pointer items-center gap-1 self-start text-[10px] text-muted-foreground hover:text-foreground"
+                    >
+                      {navSnippetOpen
+                        ? <><ChevronDown className="size-3" />Hide code</>
+                        : <><ChevronRight className="size-3" />Show code</>}
+                    </button>
+                    {navSnippetOpen && (
+                      <pre className="mt-1 max-h-48 overflow-auto rounded-lg border border-border bg-card p-3 text-xs leading-relaxed text-foreground/80">
+                        <code className="font-mono">{navContext.snippet}</code>
+                      </pre>
+                    )}
+                  </div>
+                  {/* Dismiss */}
+                  <button
+                    onClick={() => { setNavContext(null); setNavSnippetOpen(false) }}
+                    aria-label="Dismiss context"
+                    className="mt-0.5 flex shrink-0 cursor-pointer items-center justify-center rounded p-1 text-muted-foreground hover:bg-muted hover:text-foreground"
+                  >
+                    <X className="size-3.5" />
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+
           {/* Message list */}
           <div
             ref={scrollRef}

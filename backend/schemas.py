@@ -114,3 +114,22 @@ class SearchResponse(BaseModel):
     repo_id: str
     query: str
     results: list[SearchResultItem]
+
+
+class SymbolItem(BaseModel):
+    id: int
+    repo_id: str
+    name: str
+    kind: str
+    file_path: str
+    start_line: int
+    end_line: int
+    signature: str
+    snippet: str
+
+
+class NavigateResponse(BaseModel):
+    repo_id: str
+    query: str
+    kind: str | None
+    results: list[SymbolItem]

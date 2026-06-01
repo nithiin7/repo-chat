@@ -13,6 +13,7 @@ from backend.persistence.message import (
     set_chat_title_if_default,
 )
 from backend.persistence.repo import delete_repo, get_repo, list_repos, upsert_repo
+from backend.persistence.symbol import delete_symbols, insert_symbols, list_symbols, search_symbols
 
 __all__ = [
     "init_db",
@@ -29,4 +30,8 @@ __all__ = [
     "list_repos",
     "get_repo",
     "delete_repo",
+    "insert_symbols",
+    "search_symbols",
+    "list_symbols",
+    "delete_symbols",
 ]

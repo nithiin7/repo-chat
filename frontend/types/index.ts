@@ -120,3 +120,22 @@ export interface SearchResponse {
   query: string;
   results: SearchResult[];
 }
+
+export interface SymbolItem {
+  id: number;
+  repo_id: string;
+  name: string;
+  kind: "function" | "class" | "method";
+  file_path: string;
+  start_line: number;
+  end_line: number;
+  signature: string;
+  snippet: string;
+}
+
+export interface NavigateResponse {
+  repo_id: string;
+  query: string;
+  kind: string | null;
+  results: SymbolItem[];
+}
