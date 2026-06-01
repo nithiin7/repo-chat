@@ -9,7 +9,7 @@ from fastapi import APIRouter, HTTPException, Query
 from backend.config import get_settings
 from backend.core.fetcher import FetchResult, RepoFetchError, fetch_repo, get_remote_head
 from backend.core.indexer import build_index, delete_index
-from backend.core.retriever import retrieve
+from backend.core.hybrid_retriever import hybrid_retrieve
 from backend.persistence import (
     create_chat,
     delete_chats_for_repo,
@@ -156,7 +156,7 @@ async def search_repo(
     existing = await asyncio.to_thread(get_repo, repo_id)
     if not existing:
         raise HTTPException(status_code=404, detail=f"Repo '{repo_id}' not indexed.")
-    chunks = await asyncio.to_thread(retrieve, repo_id, query, top_k)
+    chunks = await asyncio.to_thread(hybrid_retrieve, repo_id, query, top_k)
     return SearchResponse(
         repo_id=repo_id,
         query=query,

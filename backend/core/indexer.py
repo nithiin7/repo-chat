@@ -186,7 +186,9 @@ def _index_symbols(file_paths: list[Path], repo_id: str) -> None:
 
 def delete_index(repo_id: str) -> None:
     """Drop the ChromaDB collection and symbol rows for repo_id."""
+    from backend.core.hybrid_retriever import invalidate_cache as _invalidate_hybrid
     from backend.persistence.symbol import delete_symbols
+    _invalidate_hybrid(repo_id)
     name = _sanitize_name(repo_id)
     try:
         _get_chroma_client().delete_collection(name)

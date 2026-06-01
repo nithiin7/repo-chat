@@ -8,7 +8,8 @@ from fastapi.responses import StreamingResponse
 
 from backend.config import get_settings
 from backend.core.llm import LLMError, generate_suggestions, stream_answer
-from backend.core.retriever import SourceChunk, retrieve
+from backend.core.hybrid_retriever import hybrid_retrieve
+from backend.core.retriever import SourceChunk
 from backend.persistence import (
     delete_chat,
     get_chat,
@@ -44,7 +45,7 @@ async def chat(body: ChatRequest):
         had_error = False
         try:
             source_chunks: list[SourceChunk] = await asyncio.to_thread(
-                retrieve, body.repo_id, body.question
+                hybrid_retrieve, body.repo_id, body.question
             )
             saved_sources = source_chunks
 
