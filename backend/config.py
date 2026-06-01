@@ -35,7 +35,7 @@ class Settings(BaseSettings):
 
     # Embeddings — Ollama model names (no "/") use OllamaEmbedding;
     # HuggingFace Hub paths (e.g. "BAAI/bge-small-en-v1.5") use HuggingFaceEmbedding.
-    embedding_model: str = "nomic-embed-code"
+    embedding_model: str = "nomic-embed-text"
 
     # Chat behaviour
     suggest_related_questions: bool = False

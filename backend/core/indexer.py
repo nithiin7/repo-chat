@@ -1,8 +1,25 @@
 """
 Indexer — reads a list of source file paths produced by the fetcher, splits
-them into code chunks using LlamaIndex's CodeSplitter (tree-sitter backed),
-embeds each chunk with HuggingFace bge-small-en-v1.5, and persists the
-resulting vectors in a per-repo ChromaDB collection.
+them into code chunks using LangChain's RecursiveCharacterTextSplitter (AST-
+aware separators), embeds each child chunk with the configured embedding model,
+and persists the resulting vectors in a per-repo ChromaDB collection.
+
+Two-pass chunking strategy
+--------------------------
+Each file is first split into *parent* chunks (~4096 chars / ~1024 tokens).
+Each parent is then split into *child* chunks (~1024 chars / ~256 tokens).
+Only child chunks are embedded and stored in ChromaDB; the parent chunks are
+saved to SQLite and fetched at query time so the LLM receives full
+function/class context.
+
+Metadata on every child chunk (TextNode)
+-----------------------------------------
+  file_path   : absolute path to the source file
+  language    : python | javascript | typescript | java | go | text
+  chunk_type  : function | class | method | module
+  symbol_name : enclosing symbol name, or None
+  chunk_index : sequential index within the file (0-based)
+  parent_id   : UUID of the parent chunk stored in SQLite
 
 Skip logic: if a collection for repo_id already has documents, build_index
 returns the existing count immediately without re-processing any files.
@@ -10,10 +27,12 @@ returns the existing count immediately without re-processing any files.
 
 import logging
 import re
+import uuid
 from collections import defaultdict
 from dataclasses import asdict
 from functools import lru_cache
 from pathlib import Path
+from typing import Optional
 
 import chromadb
 from llama_index.core import Document, StorageContext, VectorStoreIndex
@@ -25,7 +44,7 @@ from llama_index.embeddings.ollama import OllamaEmbedding
 from llama_index.vector_stores.chroma import ChromaVectorStore
 
 from backend.config import get_settings
-from backend.core.symbol_extractor import extract_symbols
+from backend.core.symbol_extractor import ExtractedSymbol, extract_symbols
 
 logger = logging.getLogger(__name__)
 
@@ -33,7 +52,6 @@ logger = logging.getLogger(__name__)
 # Constants
 # ---------------------------------------------------------------------------
 
-# Maps file extension → tree-sitter language name used by _load_documents metadata.
 _EXT_TO_LANG: dict[str, str] = {
     ".py": "python",
     ".js": "javascript",
@@ -44,8 +62,6 @@ _EXT_TO_LANG: dict[str, str] = {
     ".go": "go",
 }
 
-# Maps file extension → LangChain Language enum for AST-aware splitting.
-# Add entries here to support additional languages without touching split logic.
 LANGUAGE_MAP: dict[str, Language] = {
     ".py": Language.PYTHON,
     ".js": Language.JS,
@@ -56,13 +72,19 @@ LANGUAGE_MAP: dict[str, Language] = {
     ".go": Language.GO,
 }
 
-# AST-aware splitter settings (character-based).
-_CHUNK_SIZE = 1500
-_CHUNK_OVERLAP = 200
+# Parent chunks — stored in SQLite, returned to LLM (~1024 tokens)
+_PARENT_CHUNK_SIZE = 4096
+_PARENT_CHUNK_OVERLAP = 256
 
-# Fallback character splitter settings for extensions not in LANGUAGE_MAP.
-_FALLBACK_CHUNK_SIZE = 512
-_FALLBACK_CHUNK_OVERLAP = 64
+# Child chunks — embedded in ChromaDB, used for retrieval (~256 tokens)
+_CHILD_CHUNK_SIZE = 1024
+_CHILD_CHUNK_OVERLAP = 128
+
+# Fallback sizes for extensions not in LANGUAGE_MAP
+_FALLBACK_PARENT_SIZE = 2048
+_FALLBACK_PARENT_OVERLAP = 128
+_FALLBACK_CHILD_SIZE = 512
+_FALLBACK_CHILD_OVERLAP = 64
 
 
 # ---------------------------------------------------------------------------
@@ -71,14 +93,12 @@ _FALLBACK_CHUNK_OVERLAP = 64
 
 @lru_cache(maxsize=1)
 def _get_chroma_client() -> chromadb.PersistentClient:
-    """One persistent ChromaDB client per process, reused across calls."""
     path = str(get_settings().chroma_persist_dir)
     return chromadb.PersistentClient(path=path)
 
 
 @lru_cache(maxsize=1)
 def get_embed_model() -> BaseEmbedding:
-    """Return a cached embed model: Ollama for short names, HuggingFace for 'org/model' paths."""
     model_name = get_settings().embedding_model
     logger.info("Loading embedding model '%s'…", model_name)
     if "/" in model_name:
@@ -89,17 +109,36 @@ _get_embed_model = get_embed_model  # backward-compat alias
 
 
 def _sanitize_name(repo_id: str) -> str:
-    """
-    Coerce repo_id into a valid ChromaDB collection name:
-    3-63 chars, lowercase alphanumeric + hyphens, start/end alphanumeric.
-    """
     name = re.sub(r"[^a-z0-9-]", "-", repo_id.lower())
     name = re.sub(r"-+", "-", name).strip("-")
     name = name[:63]
-    # Pad names that are too short after stripping (edge case for very short ids).
     if len(name) < 3:
         name = f"r-{name}-x"
     return name
+
+
+def _make_splitter(
+    lang: Optional[Language],
+    chunk_size: int,
+    chunk_overlap: int,
+    fallback_size: int,
+    fallback_overlap: int,
+) -> RecursiveCharacterTextSplitter:
+    if lang is not None:
+        try:
+            return RecursiveCharacterTextSplitter.from_language(
+                language=lang,
+                chunk_size=chunk_size,
+                chunk_overlap=chunk_overlap,
+                add_start_index=True,
+            )
+        except Exception as exc:
+            logger.warning("from_language failed for '%s' (%s); using fallback.", lang, exc)
+    return RecursiveCharacterTextSplitter(
+        chunk_size=fallback_size,
+        chunk_overlap=fallback_overlap,
+        add_start_index=True,
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -107,7 +146,6 @@ def _sanitize_name(repo_id: str) -> str:
 # ---------------------------------------------------------------------------
 
 def get_chroma_collection(repo_id: str) -> chromadb.Collection:
-    """Return (or create) the ChromaDB collection scoped to repo_id."""
     return _get_chroma_client().get_or_create_collection(
         name=_sanitize_name(repo_id),
         metadata={"hnsw:space": "cosine"},
@@ -115,7 +153,6 @@ def get_chroma_collection(repo_id: str) -> chromadb.Collection:
 
 
 def index_already_exists(repo_id: str) -> bool:
-    """True when repo_id has at least one chunk already stored in ChromaDB."""
     try:
         return get_chroma_collection(repo_id).count() > 0
     except Exception:
@@ -125,53 +162,52 @@ def index_already_exists(repo_id: str) -> bool:
 def build_index(file_paths: list[Path], repo_id: str) -> int:
     """
     Chunk, embed, and store every file in file_paths under repo_id's
-    ChromaDB collection.
+    ChromaDB collection. Parent chunks are saved to SQLite.
 
-    - Skips re-indexing if the collection already has documents.
-    - Groups files by language so each group gets the right CodeSplitter.
-    - Falls back to SentenceSplitter for any language tree-sitter can't parse.
-
-    Returns the total number of chunks stored in ChromaDB.
+    Returns the total number of child chunks stored in ChromaDB.
     Raises ValueError when file_paths is empty or all files are unreadable.
     """
     if index_already_exists(repo_id):
         count = get_chroma_collection(repo_id).count()
-        logger.info(
-            "Repo '%s' already indexed (%d chunks) — skipping.", repo_id, count
-        )
+        logger.info("Repo '%s' already indexed (%d chunks) — skipping.", repo_id, count)
         return count
 
     if not file_paths:
         raise ValueError(f"No files provided to index for repo '{repo_id}'.")
 
-    # 1. Load
     docs = _load_documents(file_paths)
     if not docs:
-        raise ValueError(
-            f"All files were empty or unreadable for repo '{repo_id}'."
-        )
+        raise ValueError(f"All files were empty or unreadable for repo '{repo_id}'.")
     logger.info("Loaded %d / %d files for '%s'.", len(docs), len(file_paths), repo_id)
 
-    # 2. Chunk
-    nodes = _chunk_documents(docs)
-    logger.info("Produced %d chunks from %d documents.", len(nodes), len(docs))
+    child_nodes, parent_dicts = _build_chunks(docs)
+    logger.info(
+        "Produced %d parent + %d child chunks from %d documents.",
+        len(parent_dicts), len(child_nodes), len(docs),
+    )
 
-    # 3. Embed + persist
+    # Persist parent chunks to SQLite first
+    from backend.persistence.parent_chunk import save_parent_chunks
+    save_parent_chunks(repo_id, parent_dicts)
+
+    # Embed child chunks and store in ChromaDB
     collection = get_chroma_collection(repo_id)
     vector_store = ChromaVectorStore(chroma_collection=collection)
     storage_context = StorageContext.from_defaults(vector_store=vector_store)
 
     VectorStoreIndex(
-        nodes=nodes,
+        nodes=child_nodes,
         storage_context=storage_context,
         embed_model=_get_embed_model(),
         show_progress=False,
     )
 
     count = collection.count()
-    logger.info("Stored %d chunks for repo '%s'.", count, repo_id)
+    logger.info("Stored %d child chunks for repo '%s'.", count, repo_id)
 
-    # 4. Extract + persist symbols (AST-based, best-effort)
+    from backend.core.hybrid_retriever import invalidate_cache as _invalidate_hybrid
+    _invalidate_hybrid(repo_id)
+
     _index_symbols(file_paths, repo_id)
 
     return count
@@ -189,9 +225,11 @@ def _index_symbols(file_paths: list[Path], repo_id: str) -> None:
 
 
 def delete_index(repo_id: str) -> None:
-    """Drop the ChromaDB collection and symbol rows for repo_id."""
+    """Drop the ChromaDB collection, parent chunks, and symbol rows for repo_id."""
     from backend.core.hybrid_retriever import invalidate_cache as _invalidate_hybrid
+    from backend.persistence.parent_chunk import delete_parent_chunks
     from backend.persistence.symbol import delete_symbols
+
     _invalidate_hybrid(repo_id)
     name = _sanitize_name(repo_id)
     try:
@@ -200,17 +238,20 @@ def delete_index(repo_id: str) -> None:
     except Exception as exc:
         logger.warning("Could not delete collection '%s': %s", name, exc)
     try:
+        delete_parent_chunks(repo_id)
+    except Exception as exc:
+        logger.warning("Could not delete parent chunks for '%s': %s", repo_id, exc)
+    try:
         delete_symbols(repo_id)
     except Exception as exc:
         logger.warning("Could not delete symbols for '%s': %s", repo_id, exc)
 
 
 # ---------------------------------------------------------------------------
-# Internal — loading and chunking
+# Internal — loading
 # ---------------------------------------------------------------------------
 
 def _load_documents(file_paths: list[Path]) -> list[Document]:
-    """Read each file into a LlamaIndex Document, tagging language from extension."""
     docs: list[Document] = []
     for path in file_paths:
         try:
@@ -233,58 +274,153 @@ def _load_documents(file_paths: list[Path]) -> list[Document]:
     return docs
 
 
-def _chunk_documents(docs: list[Document]) -> list[TextNode]:
+# ---------------------------------------------------------------------------
+# Internal — two-pass chunking with metadata enrichment
+# ---------------------------------------------------------------------------
+
+def _build_chunks(
+    docs: list[Document],
+) -> tuple[list[TextNode], list[dict]]:
     """
-    Group documents by their LangChain Language (derived from file extension),
-    run each group through the appropriate splitter, and collect TextNodes.
-    Documents whose extension is absent from LANGUAGE_MAP get None as the key
-    and are processed by the character-based fallback splitter.
+    Two-pass split: parent chunks (~4096 chars) → child chunks (~1024 chars).
+    Returns (child_nodes_for_chroma, parent_dicts_for_sqlite).
     """
+    # Group by language so each group uses the right splitter
     by_lang: dict[Language | None, list[Document]] = defaultdict(list)
     for doc in docs:
         lang = LANGUAGE_MAP.get(Path(doc.metadata["file_path"]).suffix)
         by_lang[lang].append(doc)
 
-    all_nodes: list[TextNode] = []
+    all_child_nodes: list[TextNode] = []
+    all_parent_dicts: list[dict] = []
+
     for lang, lang_docs in by_lang.items():
-        all_nodes.extend(_split_group(lang, lang_docs))
-
-    return all_nodes
-
-
-def _split_group(lang: Language | None, docs: list[Document]) -> list[TextNode]:
-    """
-    Split a group of documents using RecursiveCharacterTextSplitter.
-
-    Uses from_language() for known Language values (AST-aware separators).
-    Falls back to plain character splitting when lang is None (unsupported
-    extension) or if from_language() raises unexpectedly.
-    """
-    if lang is not None:
-        try:
-            splitter = RecursiveCharacterTextSplitter.from_language(
-                language=lang,
-                chunk_size=_CHUNK_SIZE,
-                chunk_overlap=_CHUNK_OVERLAP,
-            )
-        except Exception as exc:
-            logger.warning(
-                "from_language failed for '%s' (%s); using character splitter.",
-                lang,
-                exc,
-            )
-            splitter = RecursiveCharacterTextSplitter(
-                chunk_size=_FALLBACK_CHUNK_SIZE,
-                chunk_overlap=_FALLBACK_CHUNK_OVERLAP,
-            )
-    else:
-        splitter = RecursiveCharacterTextSplitter(
-            chunk_size=_FALLBACK_CHUNK_SIZE,
-            chunk_overlap=_FALLBACK_CHUNK_OVERLAP,
+        parent_splitter = _make_splitter(
+            lang,
+            _PARENT_CHUNK_SIZE, _PARENT_CHUNK_OVERLAP,
+            _FALLBACK_PARENT_SIZE, _FALLBACK_PARENT_OVERLAP,
+        )
+        child_splitter = _make_splitter(
+            lang,
+            _CHILD_CHUNK_SIZE, _CHILD_CHUNK_OVERLAP,
+            _FALLBACK_CHILD_SIZE, _FALLBACK_CHILD_OVERLAP,
         )
 
-    nodes: list[TextNode] = []
-    for doc in docs:
-        for chunk in splitter.split_text(doc.text):
-            nodes.append(TextNode(text=chunk, metadata=doc.metadata))
-    return nodes
+        for doc in lang_docs:
+            child_nodes, parent_dicts = _split_doc(
+                doc, parent_splitter, child_splitter
+            )
+            all_child_nodes.extend(child_nodes)
+            all_parent_dicts.extend(parent_dicts)
+
+    return all_child_nodes, all_parent_dicts
+
+
+def _split_doc(
+    doc: Document,
+    parent_splitter: RecursiveCharacterTextSplitter,
+    child_splitter: RecursiveCharacterTextSplitter,
+) -> tuple[list[TextNode], list[dict]]:
+    """
+    Split one document into parent chunks, then split each parent into children.
+    Enriches every chunk with chunk_type, symbol_name, chunk_index, parent_id.
+    """
+    file_path = doc.metadata["file_path"]
+    language = doc.metadata["language"]
+    source_text = doc.text
+    source_lines = source_text.splitlines()
+
+    # Extract symbols once per file for metadata tagging
+    symbols = _extract_symbols_for_file(Path(file_path), source_text)
+
+    parent_lc_docs = parent_splitter.create_documents([source_text])
+
+    child_nodes: list[TextNode] = []
+    parent_dicts: list[dict] = []
+    chunk_index = 0  # global counter per file, shared across parents
+
+    for p_idx, p_doc in enumerate(parent_lc_docs):
+        parent_id = str(uuid.uuid4())
+        p_text = p_doc.page_content
+        p_start_char = p_doc.metadata.get("start_index", 0)
+
+        p_line = _char_to_line(source_text, p_start_char)
+        p_chunk_type, p_symbol_name = _match_symbol(p_line, symbols)
+
+        parent_dicts.append({
+            "id": parent_id,
+            "file_path": file_path,
+            "text": p_text,
+            "chunk_index": p_idx,
+            "language": language,
+            "chunk_type": p_chunk_type,
+            "symbol_name": p_symbol_name,
+        })
+
+        child_lc_docs = child_splitter.create_documents([p_text])
+        for c_doc in child_lc_docs:
+            c_text = c_doc.page_content
+            # start_index is relative to the parent chunk text
+            c_start_in_parent = c_doc.metadata.get("start_index", 0)
+            c_start_char = p_start_char + c_start_in_parent
+            c_line = _char_to_line(source_text, c_start_char)
+            c_chunk_type, c_symbol_name = _match_symbol(c_line, symbols)
+
+            child_nodes.append(
+                TextNode(
+                    text=c_text,
+                    metadata={
+                        "file_path": file_path,
+                        "language": language,
+                        "chunk_type": c_chunk_type,
+                        "symbol_name": c_symbol_name or "",
+                        "chunk_index": chunk_index,
+                        "parent_id": parent_id,
+                    },
+                )
+            )
+            chunk_index += 1
+
+    return child_nodes, parent_dicts
+
+
+def _char_to_line(text: str, char_offset: int) -> int:
+    """Convert a character offset to a 1-indexed line number."""
+    return text[:char_offset].count("\n") + 1
+
+
+def _match_symbol(
+    line: int, symbols: list[ExtractedSymbol]
+) -> tuple[str, Optional[str]]:
+    """
+    Return (chunk_type, symbol_name) for the symbol whose line range contains
+    `line`. When multiple symbols overlap, prefer the innermost (shortest range).
+    Falls back to ("module", None) if no symbol covers the line.
+    """
+    best: Optional[ExtractedSymbol] = None
+    for sym in symbols:
+        if sym.start_line <= line <= sym.end_line:
+            if best is None or (sym.end_line - sym.start_line) < (best.end_line - best.start_line):
+                best = sym
+    if best is None:
+        return "module", None
+    return best.kind, best.name
+
+
+def _extract_symbols_for_file(
+    path: Path, source: str
+) -> list[ExtractedSymbol]:
+    """Extract symbols from a single file's already-loaded source text."""
+    from backend.core.symbol_extractor import _EXT_TO_LANG as _SYM_EXT_LANG
+    from backend.core.symbol_extractor import _extract_python, _extract_regex
+
+    lang = _SYM_EXT_LANG.get(path.suffix)
+    if lang is None:
+        return []
+    try:
+        if lang == "python":
+            return _extract_python(source, str(path))
+        return _extract_regex(source, str(path), lang)
+    except Exception as exc:
+        logger.debug("Symbol extraction failed for %s: %s", path, exc)
+        return []

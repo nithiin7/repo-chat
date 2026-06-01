@@ -2,27 +2,26 @@
 HybridRetriever — fuses dense vector search (ChromaDB/LlamaIndex) with sparse
 BM25 keyword search using Reciprocal Rank Fusion (RRF, k=60).
 
+After RRF merge, each child chunk is expanded to its parent chunk (SQLite
+lookup by parent_id) so the LLM receives full function/class context while
+retrieval precision stays high (small child embeddings).
+
 One HybridRetriever is built per repo_id and cached in _cache. The expensive
 parts (corpus fetch, BM25 build, VectorStoreIndex init) run once; top_k is
 passed per query so the same cached instance serves all call sites.
 Call invalidate_cache(repo_id) after re-indexing to force a rebuild.
-
-Construct via make_hybrid_retriever(repo_id) or directly:
-    retriever = HybridRetriever(vector_store, all_chunks, embed_model)
-    results = retriever.get_relevant_documents(query, top_k=5)
 """
 
 import re
+from typing import Optional
 
 from llama_index.core import VectorStoreIndex
 from llama_index.core.embeddings import BaseEmbedding
 from llama_index.vector_stores.chroma import ChromaVectorStore
 from rank_bm25 import BM25Okapi
 
-from backend.core.retriever import SourceChunk
+from backend.core.retriever import SourceChunk, _expand_to_parents
 
-# Per-repo cache: avoids rebuilding the BM25 index + fetching the full corpus
-# on every request. Invalidated by invalidate_cache() when a repo is re-indexed.
 _cache: dict[str, "HybridRetriever"] = {}
 
 
@@ -31,7 +30,7 @@ def _tokenize(text: str) -> list[str]:
 
 
 def _doc_id(file_path: str, chunk: str) -> str:
-    """Stable dedup key used to merge hits from both retrievers."""
+    """Stable dedup key — uses child chunk text (pre-parent-expansion)."""
     return f"{file_path}::{chunk[:80]}"
 
 
@@ -57,6 +56,10 @@ def _rrf_merge(
             file_path=chunks[did]["file_path"],
             chunk=chunks[did]["chunk"],
             score=rrf_scores[did],
+            chunk_type=chunks[did]["chunk_type"],
+            symbol_name=chunks[did]["symbol_name"],
+            chunk_index=chunks[did]["chunk_index"],
+            parent_id=chunks[did]["parent_id"],
         )
         for did in sorted(rrf_scores, key=lambda d: rrf_scores[d], reverse=True)
     ]
@@ -64,47 +67,45 @@ def _rrf_merge(
 
 class HybridRetriever:
     """
-    Accepts the existing ChromaVectorStore and a pre-fetched list of all document
+    Accepts the existing ChromaVectorStore and a pre-fetched list of all child
     chunks at init time. BM25 index is built once over those chunks; the vector
-    index wraps the same store. Both retrievers over-fetch by 2× before RRF merge.
+    index wraps the same store. Both retrievers over-fetch by 2× before RRF
+    merge. After merge, child chunks are expanded to parent chunks.
 
     .get_relevant_documents(query) is compatible with LangChain retriever chains.
     """
 
     def __init__(
         self,
+        repo_id: str,
         vector_store: ChromaVectorStore,
         all_chunks: list[SourceChunk],
         embed_model: BaseEmbedding,
     ) -> None:
+        self._repo_id = repo_id
         self._all_chunks = all_chunks
 
-        # Dense index — wraps the same ChromaVectorStore, built once
         self._index = VectorStoreIndex.from_vector_store(
             vector_store=vector_store,
             embed_model=embed_model,
         )
 
-        # Sparse BM25 index over all chunk texts
         tokenized = [_tokenize(c["chunk"]) for c in all_chunks]
         self._bm25 = BM25Okapi(tokenized) if tokenized else None
 
     def get_relevant_documents(self, query: str, top_k: int = 5) -> list[SourceChunk]:
-        """Return top_k SourceChunks fused from vector + BM25 via RRF."""
+        """Return top_k SourceChunks fused from vector + BM25 via RRF, expanded to parents."""
         n = top_k * 2
 
         vector_hits = self._vector_retrieve(query, n)
         bm25_hits = self._bm25_retrieve(query, n)
 
-        return _rrf_merge([vector_hits, bm25_hits])[:top_k]
+        merged = _rrf_merge([vector_hits, bm25_hits])[:top_k]
+        return _expand_to_parents(self._repo_id, merged)
 
     # ------------------------------------------------------------------
-    # Internal retrieval helpers
-    # ------------------------------------------------------------------
 
-    def _vector_retrieve(
-        self, query: str, n: int
-    ) -> list[tuple[str, SourceChunk]]:
+    def _vector_retrieve(self, query: str, n: int) -> list[tuple[str, SourceChunk]]:
         nodes = self._index.as_retriever(similarity_top_k=n).retrieve(query)
         return [
             (
@@ -116,14 +117,16 @@ class HybridRetriever:
                     file_path=node.node.metadata.get("file_path", ""),
                     chunk=node.get_content(),
                     score=float(node.score) if node.score is not None else 0.0,
+                    chunk_type=node.node.metadata.get("chunk_type", "module"),
+                    symbol_name=node.node.metadata.get("symbol_name") or None,
+                    chunk_index=int(node.node.metadata.get("chunk_index", 0)),
+                    parent_id=node.node.metadata.get("parent_id", ""),
                 ),
             )
             for node in nodes
         ]
 
-    def _bm25_retrieve(
-        self, query: str, n: int
-    ) -> list[tuple[str, SourceChunk]]:
+    def _bm25_retrieve(self, query: str, n: int) -> list[tuple[str, SourceChunk]]:
         if self._bm25 is None or not self._all_chunks:
             return []
 
@@ -139,10 +142,14 @@ class HybridRetriever:
                     file_path=self._all_chunks[i]["file_path"],
                     chunk=self._all_chunks[i]["chunk"],
                     score=float(scores[i]),
+                    chunk_type=self._all_chunks[i]["chunk_type"],
+                    symbol_name=self._all_chunks[i]["symbol_name"],
+                    chunk_index=self._all_chunks[i]["chunk_index"],
+                    parent_id=self._all_chunks[i]["parent_id"],
                 ),
             )
             for i in top_indices
-            if scores[i] > 0.0  # skip zero-score results
+            if scores[i] > 0.0
         ]
 
 
@@ -152,8 +159,8 @@ class HybridRetriever:
 
 def make_hybrid_retriever(repo_id: str) -> HybridRetriever:
     """
-    Build a HybridRetriever for repo_id by fetching the full corpus from
-    ChromaDB and constructing the BM25 + vector indices.
+    Build a HybridRetriever for repo_id by fetching the full child-chunk corpus
+    from ChromaDB and constructing the BM25 + vector indices.
     """
     from backend.core.indexer import get_chroma_collection, get_embed_model
 
@@ -166,6 +173,10 @@ def make_hybrid_retriever(repo_id: str) -> HybridRetriever:
             file_path=(meta or {}).get("file_path", ""),
             chunk=text,
             score=0.0,
+            chunk_type=(meta or {}).get("chunk_type", "module"),
+            symbol_name=(meta or {}).get("symbol_name") or None,
+            chunk_index=int((meta or {}).get("chunk_index", 0)),
+            parent_id=(meta or {}).get("parent_id", ""),
         )
         for text, meta in zip(
             result["documents"] or [], result["metadatas"] or []
@@ -173,6 +184,7 @@ def make_hybrid_retriever(repo_id: str) -> HybridRetriever:
     ]
 
     return HybridRetriever(
+        repo_id=repo_id,
         vector_store=vector_store,
         all_chunks=all_chunks,
         embed_model=get_embed_model(),
@@ -180,7 +192,6 @@ def make_hybrid_retriever(repo_id: str) -> HybridRetriever:
 
 
 def invalidate_cache(repo_id: str) -> None:
-    """Remove the cached HybridRetriever for repo_id. Called after re-indexing."""
     _cache.pop(repo_id, None)
 
 

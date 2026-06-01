@@ -5,9 +5,10 @@ pydantic==2.9.2
 pydantic-settings==2.6.1
 
 # RAG / LlamaIndex
-llama-index-core==0.12.3
-llama-index-embeddings-huggingface==0.4.0
-llama-index-vector-stores-chroma==0.4.1
+llama-index-core==0.14.22
+llama-index-embeddings-huggingface==0.7.0
+llama-index-embeddings-ollama==0.9.0
+llama-index-vector-stores-chroma==0.5.5
 huggingface-hub>=0.20.0,<1.0.0
 
 # AST-aware chunking via language-specific recursive separators
