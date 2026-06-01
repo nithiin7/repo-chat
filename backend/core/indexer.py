@@ -19,7 +19,9 @@ import chromadb
 from llama_index.core import Document, StorageContext, VectorStoreIndex
 from langchain_text_splitters import Language, RecursiveCharacterTextSplitter
 from llama_index.core.schema import TextNode
+from llama_index.core.embeddings import BaseEmbedding
 from llama_index.embeddings.huggingface import HuggingFaceEmbedding
+from llama_index.embeddings.ollama import OllamaEmbedding
 from llama_index.vector_stores.chroma import ChromaVectorStore
 
 from backend.config import get_settings
@@ -75,11 +77,13 @@ def _get_chroma_client() -> chromadb.PersistentClient:
 
 
 @lru_cache(maxsize=1)
-def get_embed_model() -> HuggingFaceEmbedding:
-    """Load bge-small-en-v1.5 once; subsequent calls return the cached model."""
+def get_embed_model() -> BaseEmbedding:
+    """Return a cached embed model: Ollama for short names, HuggingFace for 'org/model' paths."""
     model_name = get_settings().embedding_model
     logger.info("Loading embedding model '%s'…", model_name)
-    return HuggingFaceEmbedding(model_name=model_name)
+    if "/" in model_name:
+        return HuggingFaceEmbedding(model_name=model_name)
+    return OllamaEmbedding(model_name=model_name)
 
 _get_embed_model = get_embed_model  # backward-compat alias
 

@@ -15,7 +15,7 @@ Construct via make_hybrid_retriever(repo_id) or directly:
 import re
 
 from llama_index.core import VectorStoreIndex
-from llama_index.embeddings.huggingface import HuggingFaceEmbedding
+from llama_index.core.embeddings import BaseEmbedding
 from llama_index.vector_stores.chroma import ChromaVectorStore
 from rank_bm25 import BM25Okapi
 
@@ -75,7 +75,7 @@ class HybridRetriever:
         self,
         vector_store: ChromaVectorStore,
         all_chunks: list[SourceChunk],
-        embed_model: HuggingFaceEmbedding,
+        embed_model: BaseEmbedding,
     ) -> None:
         self._all_chunks = all_chunks
 

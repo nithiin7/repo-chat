@@ -33,8 +33,9 @@ class Settings(BaseSettings):
     gemini_api_key: str = ""
     gemini_model: str = "gemini-2.0-flash"
 
-    # Embeddings
-    embedding_model: str = "BAAI/bge-small-en-v1.5"
+    # Embeddings — Ollama model names (no "/") use OllamaEmbedding;
+    # HuggingFace Hub paths (e.g. "BAAI/bge-small-en-v1.5") use HuggingFaceEmbedding.
+    embedding_model: str = "nomic-embed-code"
 
     # Chat behaviour
     suggest_related_questions: bool = False
