@@ -1,15 +1,16 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useSyncExternalStore } from 'react'
 import { useTheme } from 'next-themes'
 import { Sun, Moon } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
+const subscribe = () => () => {}
+const useIsHydrated = () => useSyncExternalStore(subscribe, () => true, () => false)
+
 export const ThemeToggle = ({ className }: { className?: string }) => {
   const { theme, setTheme } = useTheme()
-  const [mounted, setMounted] = useState(false)
-
-  useEffect(() => setMounted(true), [])
+  const mounted = useIsHydrated()
 
   if (!mounted) return <div className={cn('size-8', className)} />
 
