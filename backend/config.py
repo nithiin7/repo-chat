@@ -39,6 +39,7 @@ class Settings(BaseSettings):
 
     # Chat behaviour
     suggest_related_questions: bool = False
+    use_reranker: bool = False
 
     # ChromaDB
     chroma_persist_dir: str = "./chroma_db"

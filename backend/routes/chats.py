@@ -9,6 +9,7 @@ from fastapi.responses import StreamingResponse
 from backend.config import get_settings
 from backend.core.llm import LLMError, generate_suggestions, stream_answer
 from backend.core.hybrid_retriever import hybrid_retrieve
+from backend.core.reranker import get_reranker
 from backend.core.retriever import SourceChunk
 from backend.persistence import (
     delete_chat,
@@ -47,6 +48,10 @@ async def chat(body: ChatRequest):
             source_chunks: list[SourceChunk] = await asyncio.to_thread(
                 hybrid_retrieve, body.repo_id, body.question
             )
+            if get_settings().use_reranker:
+                source_chunks = await asyncio.to_thread(
+                    get_reranker().rerank, body.question, source_chunks
+                )
             saved_sources = source_chunks
 
             yield f"event: sources\ndata: {json.dumps(source_chunks)}\n\n"

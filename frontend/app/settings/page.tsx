@@ -59,6 +59,7 @@ const SettingsPage = () => {
   const [showKey, setShowKey] = useState(false)
   const [embeddingModel, setEmbeddingModel] = useState('')
   const [suggestRelatedQuestions, setSuggestRelatedQuestions] = useState(false)
+  const [useReranker, setUseReranker] = useState(false)
 
   const [saveState, setSaveState] = useState<SaveState>('idle')
   const [saveError, setSaveError] = useState<string | null>(null)
@@ -78,6 +79,7 @@ const SettingsPage = () => {
     })
     setEmbeddingModel(settings.embedding_model)
     setSuggestRelatedQuestions(settings.suggest_related_questions)
+    setUseReranker(settings.use_reranker)
   }, [settings])
 
   const saveSettingsMutation = useMutation({
@@ -138,6 +140,7 @@ const SettingsPage = () => {
     if (providerConfig.groq.key) update.groq_api_key = providerConfig.groq.key
     if (providerConfig.gemini.key) update.gemini_api_key = providerConfig.gemini.key
     update.suggest_related_questions = suggestRelatedQuestions
+    update.use_reranker = useReranker
     saveSettingsMutation.mutate(update)
   }
 
@@ -388,6 +391,32 @@ const SettingsPage = () => {
                         className={cn(
                           'pointer-events-none block size-4 rounded-full bg-white shadow-sm ring-0 transition-transform',
                           suggestRelatedQuestions ? 'translate-x-4' : 'translate-x-0',
+                        )}
+                      />
+                    </button>
+                  </div>
+
+                  <div className="flex items-start justify-between gap-4">
+                    <div className="space-y-1">
+                      <p className="text-sm font-medium">Rerank search results</p>
+                      <p className="text-xs text-muted-foreground">
+                        Run a CrossEncoder over retrieved chunks before sending them to the LLM, improving answer relevance at the cost of a small latency increase.
+                      </p>
+                    </div>
+                    <button
+                      type="button"
+                      role="switch"
+                      aria-checked={useReranker}
+                      onClick={() => setUseReranker(v => !v)}
+                      className={cn(
+                        'relative mt-0.5 inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
+                        useReranker ? 'bg-indigo-500' : 'bg-muted',
+                      )}
+                    >
+                      <span
+                        className={cn(
+                          'pointer-events-none block size-4 rounded-full bg-white shadow-sm ring-0 transition-transform',
+                          useReranker ? 'translate-x-4' : 'translate-x-0',
                         )}
                       />
                     </button>

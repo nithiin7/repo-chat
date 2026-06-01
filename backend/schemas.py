@@ -82,6 +82,7 @@ class SettingsView(BaseModel):
     has_gemini_key: bool
     embedding_model: str
     suggest_related_questions: bool
+    use_reranker: bool
 
 
 class SettingsUpdate(BaseModel):
@@ -98,6 +99,7 @@ class SettingsUpdate(BaseModel):
     gemini_api_key: str | None = None
     embedding_model: str | None = None
     suggest_related_questions: bool | None = None
+    use_reranker: bool | None = None
 
 
 class EmbeddingPullRequest(BaseModel):
