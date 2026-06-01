@@ -10,8 +10,8 @@ llama-index-embeddings-huggingface==0.4.0
 llama-index-vector-stores-chroma==0.4.1
 huggingface-hub>=0.20.0,<1.0.0
 
-# Required by CodeSplitter for tree-sitter AST-based code chunking
-tree-sitter-languages==1.10.2
+# AST-aware chunking via language-specific recursive separators
+langchain-text-splitters>=0.3.0
 
 # Vector store
 chromadb==0.5.23

@@ -17,7 +17,7 @@ from pathlib import Path
 
 import chromadb
 from llama_index.core import Document, StorageContext, VectorStoreIndex
-from llama_index.core.node_parser import CodeSplitter, SentenceSplitter
+from langchain_text_splitters import Language, RecursiveCharacterTextSplitter
 from llama_index.core.schema import TextNode
 from llama_index.embeddings.huggingface import HuggingFaceEmbedding
 from llama_index.vector_stores.chroma import ChromaVectorStore
@@ -31,7 +31,7 @@ logger = logging.getLogger(__name__)
 # Constants
 # ---------------------------------------------------------------------------
 
-# Maps file extension → tree-sitter language name used by CodeSplitter.
+# Maps file extension → tree-sitter language name used by _load_documents metadata.
 _EXT_TO_LANG: dict[str, str] = {
     ".py": "python",
     ".js": "javascript",
@@ -42,12 +42,23 @@ _EXT_TO_LANG: dict[str, str] = {
     ".go": "go",
 }
 
-# CodeSplitter tuning — 40 lines per chunk keeps context tight for code Q&A.
-_CHUNK_LINES = 40
-_CHUNK_LINES_OVERLAP = 5
-_MAX_CHARS = 1500
+# Maps file extension → LangChain Language enum for AST-aware splitting.
+# Add entries here to support additional languages without touching split logic.
+LANGUAGE_MAP: dict[str, Language] = {
+    ".py": Language.PYTHON,
+    ".js": Language.JS,
+    ".jsx": Language.JS,
+    ".ts": Language.TS,
+    ".tsx": Language.TS,
+    ".java": Language.JAVA,
+    ".go": Language.GO,
+}
 
-# Fallback text splitter settings for any language CodeSplitter can't handle.
+# AST-aware splitter settings (character-based).
+_CHUNK_SIZE = 1500
+_CHUNK_OVERLAP = 200
+
+# Fallback character splitter settings for extensions not in LANGUAGE_MAP.
 _FALLBACK_CHUNK_SIZE = 512
 _FALLBACK_CHUNK_OVERLAP = 64
 
@@ -218,14 +229,15 @@ def _load_documents(file_paths: list[Path]) -> list[Document]:
 
 def _chunk_documents(docs: list[Document]) -> list[TextNode]:
     """
-    Group documents by language, run each group through CodeSplitter, and
-    collect all resulting TextNodes.  Falls back to SentenceSplitter per group
-    if tree-sitter cannot parse that language (missing grammar, unsupported
-    version, etc.).
+    Group documents by their LangChain Language (derived from file extension),
+    run each group through the appropriate splitter, and collect TextNodes.
+    Documents whose extension is absent from LANGUAGE_MAP get None as the key
+    and are processed by the character-based fallback splitter.
     """
-    by_lang: dict[str, list[Document]] = defaultdict(list)
+    by_lang: dict[Language | None, list[Document]] = defaultdict(list)
     for doc in docs:
-        by_lang[doc.metadata["language"]].append(doc)
+        lang = LANGUAGE_MAP.get(Path(doc.metadata["file_path"]).suffix)
+        by_lang[lang].append(doc)
 
     all_nodes: list[TextNode] = []
     for lang, lang_docs in by_lang.items():
@@ -234,24 +246,39 @@ def _chunk_documents(docs: list[Document]) -> list[TextNode]:
     return all_nodes
 
 
-def _split_group(lang: str, docs: list[Document]) -> list[TextNode]:
-    """Apply CodeSplitter for lang, falling back to SentenceSplitter on failure."""
-    try:
-        splitter = CodeSplitter(
-            language=lang,
-            chunk_lines=_CHUNK_LINES,
-            chunk_lines_overlap=_CHUNK_LINES_OVERLAP,
-            max_chars=_MAX_CHARS,
-        )
-        return splitter.get_nodes_from_documents(docs)
-    except Exception as exc:
-        logger.warning(
-            "CodeSplitter failed for language '%s' (%s); using SentenceSplitter.",
-            lang,
-            exc,
-        )
-        fallback = SentenceSplitter(
+def _split_group(lang: Language | None, docs: list[Document]) -> list[TextNode]:
+    """
+    Split a group of documents using RecursiveCharacterTextSplitter.
+
+    Uses from_language() for known Language values (AST-aware separators).
+    Falls back to plain character splitting when lang is None (unsupported
+    extension) or if from_language() raises unexpectedly.
+    """
+    if lang is not None:
+        try:
+            splitter = RecursiveCharacterTextSplitter.from_language(
+                language=lang,
+                chunk_size=_CHUNK_SIZE,
+                chunk_overlap=_CHUNK_OVERLAP,
+            )
+        except Exception as exc:
+            logger.warning(
+                "from_language failed for '%s' (%s); using character splitter.",
+                lang,
+                exc,
+            )
+            splitter = RecursiveCharacterTextSplitter(
+                chunk_size=_FALLBACK_CHUNK_SIZE,
+                chunk_overlap=_FALLBACK_CHUNK_OVERLAP,
+            )
+    else:
+        splitter = RecursiveCharacterTextSplitter(
             chunk_size=_FALLBACK_CHUNK_SIZE,
             chunk_overlap=_FALLBACK_CHUNK_OVERLAP,
         )
-        return fallback.get_nodes_from_documents(docs)
+
+    nodes: list[TextNode] = []
+    for doc in docs:
+        for chunk in splitter.split_text(doc.text):
+            nodes.append(TextNode(text=chunk, metadata=doc.metadata))
+    return nodes
