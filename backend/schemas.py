@@ -157,3 +157,34 @@ class DepGraphResponse(BaseModel):
     repo_id: str
     nodes: list[DepNode]
     edges: list[DepEdge]
+
+
+class TodoItem(BaseModel):
+    file_path: str
+    line: int
+    kind: str  # TODO | FIXME | HACK | XXX | BUG | NOTE
+    text: str
+
+
+class ComplexityHotspot(BaseModel):
+    file_path: str
+    function_count: int
+    avg_function_length: float
+    max_function_length: int
+    score: float
+
+
+class TestCoverageEstimate(BaseModel):
+    test_file_count: int
+    source_file_count: int
+    coverage_ratio: float
+    test_function_count: int
+    total_function_count: int
+
+
+class HealthSummaryResponse(BaseModel):
+    repo_id: str
+    todos: list[TodoItem]
+    complexity_hotspots: list[ComplexityHotspot]
+    test_coverage: TestCoverageEstimate
+    generated_at: str

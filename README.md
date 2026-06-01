@@ -22,6 +22,7 @@ Paste a repo URL. CodeLens clones it, indexes every source file into a vector st
 - **Semantic code search** — search across the entire repo by intent, not keywords; results are ranked by embedding similarity with no LLM involved
 - **Symbol navigator** — browse every function, class, and method extracted via AST parsing (Python `ast` module; regex for JS/TS/Go/Java); filter by kind, expand definitions inline, and jump to chat from any result
 - **Dependency map** — visualize module-level import relationships as an interactive force-directed graph; click any file node to see what it imports and what imports it, with color-coding by language
+- **Repo health summary** — auto-generated overview of complexity hotspots (function count + avg length per file), TODO/FIXME/HACK comments with file and line number, and a test coverage estimate derived from the symbol index; surfaced as a collapsible panel inside the chat view
 - **Streaming chat history** — each chat session retains message history so you can ask follow-up questions
 
 ---
@@ -131,6 +132,7 @@ All other text files are chunked with a sentence splitter fallback.
 | `GET` | `/repos/{repo_id}/search?query=...&top_k=10` | Semantic search — returns ranked code chunks by embedding similarity |
 | `GET` | `/repos/{repo_id}/navigate?query=...&kind=function&limit=50` | Symbol navigator — returns functions/classes/methods parsed from the AST |
 | `GET` | `/repos/{repo_id}/deps` | Dependency graph — nodes (files) and edges (import relationships) for the entire repo |
+| `GET` | `/repos/{repo_id}/health` | Repo health summary — complexity hotspots, TODO/FIXME list, and test coverage estimate |
 
 ---
 

@@ -9,4 +9,5 @@ export const queryKeys = {
   search: (repoId: string, query: string, topK: number) => ['search', repoId, query, topK] as const,
   navigate: (repoId: string, query: string, kind: string | undefined) => ['navigate', repoId, query, kind] as const,
   deps: (repoId: string) => ['deps', repoId] as const,
+  health: (repoId: string) => ['health', repoId] as const,
 }

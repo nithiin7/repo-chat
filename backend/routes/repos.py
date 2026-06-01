@@ -23,10 +23,12 @@ from backend.persistence import (
 )
 from backend.schemas import (
     ChatInfo,
+    ComplexityHotspot,
     CreateChatRequest,
     DepEdge,
     DepGraphResponse,
     DepNode,
+    HealthSummaryResponse,
     IndexRequest,
     IndexResponse,
     NavigateResponse,
@@ -35,6 +37,8 @@ from backend.schemas import (
     SearchResponse,
     SearchResultItem,
     SymbolItem,
+    TestCoverageEstimate,
+    TodoItem,
 )
 
 router = APIRouter()
@@ -188,6 +192,26 @@ async def navigate_repo(
         query=query,
         kind=kind,
         results=[SymbolItem(**r) for r in rows],
+    )
+
+
+@router.get("/repos/{repo_id}/health", response_model=HealthSummaryResponse)
+async def get_health_summary(repo_id: str):
+    existing = await asyncio.to_thread(get_repo, repo_id)
+    if not existing:
+        raise HTTPException(status_code=404, detail=f"Repo '{repo_id}' not found.")
+
+    from backend.core.health_analyzer import generate_health_summary
+
+    repo_root = Path(get_settings().repos_dir) / existing["name"]
+    summary = await asyncio.to_thread(generate_health_summary, repo_id, repo_root)
+
+    return HealthSummaryResponse(
+        repo_id=summary["repo_id"],
+        todos=[TodoItem(**t) for t in summary["todos"]],
+        complexity_hotspots=[ComplexityHotspot(**h) for h in summary["complexity_hotspots"]],
+        test_coverage=TestCoverageEstimate(**summary["test_coverage"]),
+        generated_at=summary["generated_at"],
     )
 
 

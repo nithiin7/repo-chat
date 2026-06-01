@@ -3,6 +3,7 @@
 import Link from 'next/link'
 import { motion } from 'framer-motion'
 import {
+  Activity,
   CodeXml,
   MessageSquare,
   Cpu,
@@ -73,6 +74,12 @@ const FEATURES = [
     title: 'Dependency map',
     description:
       'Visualize module-level import relationships as an interactive force-directed graph. Click any file to see what it imports and what imports it.',
+  },
+  {
+    icon: <Activity className="size-5 text-emerald-400" />,
+    title: 'Repo health summary',
+    description:
+      'Auto-generated overview of complexity hotspots, TODO/FIXME comments, and a test coverage estimate — surfaced as a panel inside the chat view.',
   },
 ]
 

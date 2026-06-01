@@ -159,3 +159,34 @@ export interface DepGraph {
   nodes: DepNode[];
   edges: DepEdge[];
 }
+
+export interface TodoItem {
+  file_path: string;
+  line: number;
+  kind: "TODO" | "FIXME" | "HACK" | "XXX" | "BUG" | "NOTE";
+  text: string;
+}
+
+export interface ComplexityHotspot {
+  file_path: string;
+  function_count: number;
+  avg_function_length: number;
+  max_function_length: number;
+  score: number;
+}
+
+export interface TestCoverageEstimate {
+  test_file_count: number;
+  source_file_count: number;
+  coverage_ratio: number;
+  test_function_count: number;
+  total_function_count: number;
+}
+
+export interface HealthSummary {
+  repo_id: string;
+  todos: TodoItem[];
+  complexity_hotspots: ComplexityHotspot[];
+  test_coverage: TestCoverageEstimate;
+  generated_at: string;
+}

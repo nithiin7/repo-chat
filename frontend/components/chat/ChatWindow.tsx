@@ -3,12 +3,13 @@
 import { useState, useRef, useEffect, useCallback } from 'react'
 import Link from 'next/link'
 import { motion } from 'framer-motion'
-import { ArrowLeft, ChevronDown, ChevronRight, GitFork, ListTree, PanelLeftClose, PanelLeftOpen, Search, Share2, X } from 'lucide-react'
+import { Activity, ArrowLeft, ChevronDown, ChevronRight, GitFork, ListTree, PanelLeftClose, PanelLeftOpen, Search, Share2, X } from 'lucide-react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { ThemeToggle } from '@/components/ui/theme-toggle'
 import LLMModeToggle from './LLMModeToggle'
 import MessageBubble from './MessageBubble'
 import ChatSidebar from './ChatSidebar'
+import HealthPanel from '@/components/health/HealthPanel'
 import ChatEmptyState from './ChatEmptyState'
 import ChatInput from '@/components/common/ChatInput'
 import { chatStream, getChatMessages, listChats } from '@/lib/api/chats'
@@ -51,6 +52,7 @@ const ChatWindow = ({ repo, repoId, chatId, chats: initialChats, initialMessages
   const [input, setInput] = useState(initialQ ?? '')
   const [streaming, setStreaming] = useState(false)
   const [sidebarOpen, setSidebarOpen] = useState(true)
+  const [healthOpen, setHealthOpen] = useState(false)
   const [navContext, setNavContext] = useState<NavContext | null>(() => {
     if (typeof window === 'undefined') return null
     try {
@@ -276,6 +278,13 @@ const ChatWindow = ({ repo, repoId, chatId, chats: initialChats, initialMessages
           >
             <Share2 className="size-4" />
           </Link>
+          <button
+            onClick={() => setHealthOpen((o) => !o)}
+            aria-label={healthOpen ? 'Close health panel' : 'Open health panel'}
+            className={`flex size-8 items-center justify-center rounded-lg transition-colors hover:bg-muted ${healthOpen ? 'bg-emerald-500/10 text-emerald-400' : 'text-muted-foreground hover:text-foreground'}`}
+          >
+            <Activity className="size-4" />
+          </button>
           <LLMModeToggle mode={mode} onChange={setMode} disabled={streaming} />
           <ThemeToggle />
         </div>
@@ -387,6 +396,18 @@ const ChatWindow = ({ repo, repoId, chatId, chats: initialChats, initialMessages
             />
           </motion.div>
         </div>
+
+        {/* Health panel — right */}
+        <motion.aside
+          initial={false}
+          animate={{ width: healthOpen ? 320 : 0, opacity: healthOpen ? 1 : 0 }}
+          transition={{ duration: 0.2, ease: [0.25, 0.1, 0.25, 1] }}
+          className="shrink-0 overflow-hidden border-l border-border"
+        >
+          <div className="w-80 h-full">
+            <HealthPanel repoId={repoId} open={healthOpen} />
+          </div>
+        </motion.aside>
       </div>
     </div>
   )
