@@ -12,6 +12,7 @@ import {
   Database,
   Search,
   ListTree,
+  Share2,
   ArrowRight,
 } from 'lucide-react'
 import { ThemeToggle } from '@/components/ui/theme-toggle'
@@ -66,6 +67,12 @@ const FEATURES = [
     title: 'Symbol navigator',
     description:
       'Browse every function, class, and method in the repo — extracted via AST parsing, not retrieval. Filter by kind, expand definitions inline, and jump straight to chat.',
+  },
+  {
+    icon: <Share2 className="size-5 text-orange-400" />,
+    title: 'Dependency map',
+    description:
+      'Visualize module-level import relationships as an interactive force-directed graph. Click any file to see what it imports and what imports it.',
   },
 ]
 
