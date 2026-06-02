@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import { Files, FileCode, Copy, Check } from 'lucide-react'
+import { Files, FileCode, Copy, Check, ExternalLink } from 'lucide-react'
 import {
   Sheet,
   SheetContent,
@@ -14,8 +14,30 @@ import type { SourceChunk } from '@/types'
 
 interface SourceDrawerProps {
   sources: SourceChunk[]
+  repoUrl?: string
   open: boolean
   onOpenChange: (open: boolean) => void
+}
+
+function buildFileUrl(repoUrl: string, filePath: string): string | null {
+  try {
+    const base = repoUrl.replace(/\.git$/, '').replace(/\/$/, '')
+    const { hostname, pathname } = new URL(base)
+
+    // file_path is stored as an absolute local path like /…/repos/<repoName>/src/foo.ts
+    // Strip everything up to and including /<repoName>/ to get the relative path
+    const repoName = pathname.split('/').filter(Boolean).pop() ?? ''
+    const marker = `/${repoName}/`
+    const idx = filePath.indexOf(marker)
+    const relative = idx >= 0 ? filePath.slice(idx + marker.length) : filePath.replace(/^\//, '')
+
+    if (hostname === 'github.com') return `${base}/blob/HEAD/${relative}`
+    if (hostname === 'bitbucket.org') return `${base}/src/HEAD/${relative}`
+    if (hostname.includes('gitlab')) return `${base}/-/blob/HEAD/${relative}`
+    return null
+  } catch {
+    return null
+  }
 }
 
 const scoreLabel = (score: number) => {
@@ -31,7 +53,7 @@ const scoreLabel = (score: number) => {
   return { pct, color }
 }
 
-const SourceDrawer = ({ sources, open, onOpenChange }: SourceDrawerProps) => {
+const SourceDrawer = ({ sources, repoUrl, open, onOpenChange }: SourceDrawerProps) => {
   const [copiedIdx, setCopiedIdx] = useState<number | null>(null)
 
   const copy = (text: string, idx: number) => {
@@ -71,6 +93,7 @@ const SourceDrawer = ({ sources, open, onOpenChange }: SourceDrawerProps) => {
               const filename = segments.pop() ?? src.file_path
               const dir = segments.length > 0 ? segments.join('/') + '/' : ''
               const { pct, color } = scoreLabel(src.score)
+              const fileUrl = repoUrl ? buildFileUrl(repoUrl, src.file_path) : null
 
               return (
                 <div
@@ -86,14 +109,28 @@ const SourceDrawer = ({ sources, open, onOpenChange }: SourceDrawerProps) => {
                         <span className="font-medium text-foreground">{filename}</span>
                       </span>
                     </div>
-                    <span
-                      className={cn(
-                        'shrink-0 rounded-full px-2 py-0.5 text-[10px] font-semibold tabular-nums',
-                        color,
+                    <div className="flex shrink-0 items-center gap-2">
+                      {fileUrl && (
+                        <a
+                          href={fileUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          aria-label="Open in repository"
+                          className="flex items-center gap-1 rounded px-1.5 py-0.5 text-[10px] text-muted-foreground transition-colors hover:bg-muted hover:text-indigo-400"
+                        >
+                          <ExternalLink className="size-3" />
+                          Open
+                        </a>
                       )}
-                    >
-                      {pct}%
-                    </span>
+                      <span
+                        className={cn(
+                          'rounded-full px-2 py-0.5 text-[10px] font-semibold tabular-nums',
+                          color,
+                        )}
+                      >
+                        {pct}%
+                      </span>
+                    </div>
                   </div>
 
                   {/* Code chunk */}

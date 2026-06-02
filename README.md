@@ -24,6 +24,7 @@ Paste a repo URL. CodeLens clones it, indexes every source file into a vector st
 - **Dependency map** — visualize module-level import relationships as an interactive force-directed graph; click any file node to see what it imports and what imports it, with color-coding by language
 - **Repo health summary** — auto-generated overview of complexity hotspots (function count + avg length per file), TODO/FIXME/HACK comments with file and line number, and a test coverage estimate derived from the symbol index; surfaced as a collapsible panel inside the chat view
 - **Streaming chat history** — each chat session retains message history so you can ask follow-up questions
+- **Code block actions** — hover any code block in a chat response to copy it to the clipboard; source file references include a direct link to the file in GitHub, Bitbucket, or GitLab
 
 ---
 

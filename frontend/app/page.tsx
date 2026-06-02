@@ -15,6 +15,7 @@ import {
   ListTree,
   Share2,
   ArrowRight,
+  FileCode,
 } from 'lucide-react'
 import { ThemeToggle } from '@/components/ui/theme-toggle'
 
@@ -80,6 +81,12 @@ const FEATURES = [
     title: 'Repo health summary',
     description:
       'Auto-generated overview of complexity hotspots, TODO/FIXME comments, and a test coverage estimate — surfaced as a panel inside the chat view.',
+  },
+  {
+    icon: <FileCode className="size-5 text-indigo-400" />,
+    title: 'Code block actions',
+    description:
+      'Hover any code block in a response to copy it instantly. Source file references link directly to the file in GitHub, Bitbucket, or GitLab.',
   },
 ]
 

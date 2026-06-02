@@ -1,8 +1,8 @@
 'use client'
 
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import { motion } from 'framer-motion'
-import { AlertCircle, Bot, User, Files } from 'lucide-react'
+import { AlertCircle, Bot, Check, Copy, User, Files } from 'lucide-react'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import rehypeHighlight from 'rehype-highlight'
@@ -13,10 +13,41 @@ import type { Message } from '@/types'
 
 interface MessageBubbleProps {
   message: Message
+  repoUrl?: string
   onSuggestionClick?: (question: string) => void
 }
 
-const MessageBubble = ({ message, onSuggestionClick }: MessageBubbleProps) => {
+function CodeBlock({ children }: { children: React.ReactNode }) {
+  const [copied, setCopied] = useState(false)
+  const preRef = useRef<HTMLPreElement>(null)
+
+  const handleCopy = () => {
+    const text = preRef.current?.innerText ?? ''
+    navigator.clipboard.writeText(text).catch(() => {})
+    setCopied(true)
+    setTimeout(() => setCopied(false), 2000)
+  }
+
+  return (
+    <div className="group/code relative">
+      <pre ref={preRef}>{children}</pre>
+      <button
+        onClick={handleCopy}
+        aria-label="Copy code"
+        className={cn(
+          'absolute right-2 top-2 flex cursor-pointer items-center gap-1 rounded-md px-2 py-1 text-[10px] font-medium transition-all duration-150',
+          copied
+            ? 'bg-emerald-500/15 text-emerald-400'
+            : 'border border-border bg-card text-muted-foreground opacity-0 group-hover/code:opacity-100 hover:text-foreground',
+        )}
+      >
+        {copied ? <><Check className="size-3" />Copied</> : <><Copy className="size-3" />Copy</>}
+      </button>
+    </div>
+  )
+}
+
+const MessageBubble = ({ message, repoUrl, onSuggestionClick }: MessageBubbleProps) => {
   const [drawerOpen, setDrawerOpen] = useState(false)
   const isUser = message.role === 'user'
   const hasSources = !message.streaming && (message.sources?.length ?? 0) > 0
@@ -84,6 +115,7 @@ const MessageBubble = ({ message, onSuggestionClick }: MessageBubbleProps) => {
                 <ReactMarkdown
                   remarkPlugins={[remarkGfm]}
                   rehypePlugins={[rehypeHighlight]}
+                  components={{ pre: ({ children }) => <CodeBlock>{children}</CodeBlock> }}
                 >
                   {message.content}
                 </ReactMarkdown>
@@ -108,6 +140,7 @@ const MessageBubble = ({ message, onSuggestionClick }: MessageBubbleProps) => {
 
             <SourceDrawer
               sources={message.sources!}
+              repoUrl={repoUrl}
               open={drawerOpen}
               onOpenChange={setDrawerOpen}
             />

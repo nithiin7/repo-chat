@@ -374,7 +374,7 @@ const ChatWindow = ({ repo, repoId, chatId, chats: initialChats, initialMessages
             ) : (
               <div className="mx-auto max-w-3xl px-4 py-8">
                 {messages.map((msg) => (
-                  <MessageBubble key={msg.id} message={msg} onSuggestionClick={submit} />
+                  <MessageBubble key={msg.id} message={msg} repoUrl={repo?.url} onSuggestionClick={submit} />
                 ))}
               </div>
             )}
