@@ -2,7 +2,7 @@
 
 import { useRef, useState } from 'react'
 import { motion } from 'framer-motion'
-import { AlertCircle, Bot, Check, Copy, GitBranch, Loader2, User, Files } from 'lucide-react'
+import { AlertCircle, Bot, Check, Coins, Copy, GitBranch, Loader2, User, Files } from 'lucide-react'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import rehypeHighlight from 'rehype-highlight'
@@ -144,6 +144,22 @@ const MessageBubble = ({ message, repoUrl, onSuggestionClick, onFork }: MessageB
                 )}
               </div>
             )}
+          </div>
+        )}
+
+        {/* Token usage / cost (cloud mode only) */}
+        {!isUser && !message.streaming && message.usage && (
+          <div className="flex items-center gap-1 px-0.5 text-[10px] text-muted-foreground/50">
+            <Coins className="size-2.5 shrink-0" />
+            {message.usage.cost_usd != null && (
+              <span>
+                ~${message.usage.cost_usd < 0.0001 ? '0.0000' : message.usage.cost_usd.toFixed(4)}
+              </span>
+            )}
+            {message.usage.cost_usd != null && <span>·</span>}
+            <span>
+              {message.usage.input_tokens.toLocaleString()} in / {message.usage.output_tokens.toLocaleString()} out
+            </span>
           </div>
         )}
 

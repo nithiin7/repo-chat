@@ -208,6 +208,13 @@ const ChatWindow = ({ repo, repoId, chatId, chats: initialChats, initialMessages
           // Invalidate so next visit to this chat fetches fresh persisted messages
           void queryClient.invalidateQueries({ queryKey: queryKeys.chatMessages(activeChatId) })
         },
+        (usage) => {
+          setMessages((prev) => {
+            const last = prev[prev.length - 1]
+            if (!last || last.role !== 'assistant') return prev
+            return [...prev.slice(0, -1), { ...last, usage }]
+          })
+        },
       )
 
       cancelRef.current = cancel

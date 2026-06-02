@@ -48,6 +48,13 @@ export interface SourceChunk {
   score: number;
 }
 
+export interface TokenUsage {
+  input_tokens: number;
+  output_tokens: number;
+  cost_usd: number | null;
+  model: string;
+}
+
 export interface Message {
   id: string;
   role: "user" | "assistant";
@@ -57,6 +64,7 @@ export interface Message {
   sources?: SourceChunk[];
   suggestions?: string[];
   suggestionsLoading?: boolean;
+  usage?: TokenUsage;
 }
 
 export interface Chat {

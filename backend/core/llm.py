@@ -11,6 +11,7 @@ Public surface:
 import json
 import logging
 import re
+from dataclasses import dataclass
 from enum import Enum
 from typing import AsyncGenerator
 
@@ -33,6 +34,60 @@ class LLMMode(str, Enum):
 
 class LLMError(Exception):
     """Raised when the LLM backend cannot be reached or is misconfigured."""
+
+
+@dataclass
+class TokenUsage:
+    input_tokens: int
+    output_tokens: int
+    cost_usd: float | None
+    model: str
+
+    def to_dict(self) -> dict:
+        return {
+            "input_tokens": self.input_tokens,
+            "output_tokens": self.output_tokens,
+            "cost_usd": self.cost_usd,
+            "model": self.model,
+        }
+
+
+# (input $/M tokens, output $/M tokens) — sorted longest-key-first at runtime
+_PRICING: dict[str, tuple[float, float]] = {
+    "claude-opus-4": (15.0, 75.0),
+    "claude-sonnet-4": (3.0, 15.0),
+    "claude-haiku-4": (0.80, 4.0),
+    "claude-3-5-sonnet": (3.0, 15.0),
+    "claude-3-5-haiku": (0.80, 4.0),
+    "claude-3-opus": (15.0, 75.0),
+    "claude-3-sonnet": (3.0, 15.0),
+    "claude-3-haiku": (0.25, 1.25),
+    "gpt-4o-mini": (0.15, 0.60),
+    "gpt-4o": (2.50, 10.0),
+    "gpt-4-turbo": (10.0, 30.0),
+    "gpt-4": (30.0, 60.0),
+    "gpt-3.5-turbo": (0.50, 1.50),
+    "llama-3.3-70b": (0.59, 0.79),
+    "llama-3.1-70b": (0.59, 0.79),
+    "llama-3.1-8b": (0.05, 0.08),
+    "llama3-70b": (0.59, 0.79),
+    "llama3-8b": (0.05, 0.08),
+    "mixtral-8x7b": (0.24, 0.24),
+    "gemini-2.5-pro": (1.25, 10.0),
+    "gemini-2.5-flash": (0.15, 0.60),
+    "gemini-2.0-flash": (0.10, 0.40),
+    "gemini-1.5-pro": (3.50, 10.50),
+    "gemini-1.5-flash": (0.075, 0.30),
+}
+
+
+def _compute_cost(model: str, input_tokens: int, output_tokens: int) -> float | None:
+    model_lower = model.lower()
+    for key in sorted(_PRICING, key=len, reverse=True):
+        if key in model_lower:
+            in_price, out_price = _PRICING[key]
+            return (input_tokens * in_price + output_tokens * out_price) / 1_000_000
+    return None
 
 
 # ---------------------------------------------------------------------------
@@ -118,7 +173,7 @@ async def stream_local(prompt: str) -> AsyncGenerator[str, None]:
 # Cloud — Anthropic Messages API
 # ---------------------------------------------------------------------------
 
-async def stream_anthropic(prompt: str) -> AsyncGenerator[str, None]:
+async def stream_anthropic(prompt: str) -> AsyncGenerator[str | TokenUsage, None]:
     settings = get_settings()
 
     if not settings.anthropic_api_key:
@@ -138,6 +193,14 @@ async def stream_anthropic(prompt: str) -> AsyncGenerator[str, None]:
             async for text in stream.text_stream:
                 if text:
                     yield text
+            final = stream.get_final_message()
+            usage = final.usage
+            yield TokenUsage(
+                input_tokens=usage.input_tokens,
+                output_tokens=usage.output_tokens,
+                cost_usd=_compute_cost(settings.anthropic_model, usage.input_tokens, usage.output_tokens),
+                model=settings.anthropic_model,
+            )
 
     except anthropic.AuthenticationError as exc:
         raise LLMError(
@@ -159,7 +222,7 @@ async def stream_anthropic(prompt: str) -> AsyncGenerator[str, None]:
 # Cloud — OpenAI (or compatible)
 # ---------------------------------------------------------------------------
 
-async def stream_openai(prompt: str) -> AsyncGenerator[str, None]:
+async def stream_openai(prompt: str) -> AsyncGenerator[str | TokenUsage, None]:
     settings = get_settings()
 
     if not settings.openai_api_key:
@@ -181,11 +244,25 @@ async def stream_openai(prompt: str) -> AsyncGenerator[str, None]:
                 {"role": "user", "content": prompt},
             ],
             stream=True,
+            stream_options={"include_usage": True},
         )
+        prompt_tokens = 0
+        completion_tokens = 0
         async for chunk in stream:
-            delta = chunk.choices[0].delta.content if chunk.choices else None
-            if delta:
-                yield delta
+            if chunk.choices:
+                delta = chunk.choices[0].delta.content
+                if delta:
+                    yield delta
+            if chunk.usage:
+                prompt_tokens = chunk.usage.prompt_tokens or 0
+                completion_tokens = chunk.usage.completion_tokens or 0
+        if prompt_tokens or completion_tokens:
+            yield TokenUsage(
+                input_tokens=prompt_tokens,
+                output_tokens=completion_tokens,
+                cost_usd=_compute_cost(settings.openai_model, prompt_tokens, completion_tokens),
+                model=settings.openai_model,
+            )
 
     except openai.AuthenticationError as exc:
         raise LLMError(
@@ -207,7 +284,7 @@ async def stream_openai(prompt: str) -> AsyncGenerator[str, None]:
 # Cloud — Groq (OpenAI-compatible)
 # ---------------------------------------------------------------------------
 
-async def stream_groq(prompt: str) -> AsyncGenerator[str, None]:
+async def stream_groq(prompt: str) -> AsyncGenerator[str | TokenUsage, None]:
     settings = get_settings()
 
     if not settings.groq_api_key:
@@ -229,11 +306,25 @@ async def stream_groq(prompt: str) -> AsyncGenerator[str, None]:
                 {"role": "user", "content": prompt},
             ],
             stream=True,
+            stream_options={"include_usage": True},
         )
+        prompt_tokens = 0
+        completion_tokens = 0
         async for chunk in stream:
-            delta = chunk.choices[0].delta.content if chunk.choices else None
-            if delta:
-                yield delta
+            if chunk.choices:
+                delta = chunk.choices[0].delta.content
+                if delta:
+                    yield delta
+            if chunk.usage:
+                prompt_tokens = chunk.usage.prompt_tokens or 0
+                completion_tokens = chunk.usage.completion_tokens or 0
+        if prompt_tokens or completion_tokens:
+            yield TokenUsage(
+                input_tokens=prompt_tokens,
+                output_tokens=completion_tokens,
+                cost_usd=_compute_cost(settings.groq_model, prompt_tokens, completion_tokens),
+                model=settings.groq_model,
+            )
 
     except openai.AuthenticationError as exc:
         raise LLMError(
@@ -255,7 +346,7 @@ async def stream_groq(prompt: str) -> AsyncGenerator[str, None]:
 # Cloud — Google Gemini (OpenAI-compatible endpoint)
 # ---------------------------------------------------------------------------
 
-async def stream_gemini(prompt: str) -> AsyncGenerator[str, None]:
+async def stream_gemini(prompt: str) -> AsyncGenerator[str | TokenUsage, None]:
     settings = get_settings()
 
     if not settings.gemini_api_key:
@@ -277,11 +368,25 @@ async def stream_gemini(prompt: str) -> AsyncGenerator[str, None]:
                 {"role": "user", "content": prompt},
             ],
             stream=True,
+            stream_options={"include_usage": True},
         )
+        prompt_tokens = 0
+        completion_tokens = 0
         async for chunk in stream:
-            delta = chunk.choices[0].delta.content if chunk.choices else None
-            if delta:
-                yield delta
+            if chunk.choices:
+                delta = chunk.choices[0].delta.content
+                if delta:
+                    yield delta
+            if chunk.usage:
+                prompt_tokens = chunk.usage.prompt_tokens or 0
+                completion_tokens = chunk.usage.completion_tokens or 0
+        if prompt_tokens or completion_tokens:
+            yield TokenUsage(
+                input_tokens=prompt_tokens,
+                output_tokens=completion_tokens,
+                cost_usd=_compute_cost(settings.gemini_model, prompt_tokens, completion_tokens),
+                model=settings.gemini_model,
+            )
 
     except openai.AuthenticationError as exc:
         raise LLMError(
@@ -356,7 +461,7 @@ async def stream_answer(
     question: str,
     chunks: list[str],
     mode: LLMMode,
-) -> AsyncGenerator[str, None]:
+) -> AsyncGenerator[str | TokenUsage, None]:
     prompt = build_prompt(question, chunks)
     logger.debug(
         "stream_answer mode=%s question=%r chunks=%d",
@@ -372,16 +477,16 @@ async def stream_answer(
         settings = get_settings()
         provider = settings.cloud_provider
         if provider == "openai":
-            async for token in stream_openai(prompt):
-                yield token
+            async for item in stream_openai(prompt):
+                yield item
         elif provider == "groq":
-            async for token in stream_groq(prompt):
-                yield token
+            async for item in stream_groq(prompt):
+                yield item
         elif provider == "gemini":
-            async for token in stream_gemini(prompt):
-                yield token
+            async for item in stream_gemini(prompt):
+                yield item
         else:
-            async for token in stream_anthropic(prompt):
-                yield token
+            async for item in stream_anthropic(prompt):
+                yield item
     else:
         raise LLMError(f"Unknown LLM mode: {mode!r}")

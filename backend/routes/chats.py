@@ -7,7 +7,7 @@ from fastapi import APIRouter, HTTPException
 from fastapi.responses import StreamingResponse
 
 from backend.config import get_settings
-from backend.core.llm import LLMError, generate_suggestions, stream_answer
+from backend.core.llm import LLMError, TokenUsage, generate_suggestions, stream_answer
 from backend.core.hybrid_retriever import hybrid_retrieve
 from backend.core.reranker import get_reranker
 from backend.core.retriever import SourceChunk
@@ -59,9 +59,12 @@ async def chat(body: ChatRequest):
             yield f"event: sources\ndata: {json.dumps(source_chunks)}\n\n"
 
             text_chunks = [sc["chunk"] for sc in source_chunks]
-            async for token in stream_answer(body.question, text_chunks, body.mode):
-                accumulated.append(token)
-                yield f"data: {json.dumps(token)}\n\n"
+            async for item in stream_answer(body.question, text_chunks, body.mode):
+                if isinstance(item, TokenUsage):
+                    yield f"event: usage\ndata: {json.dumps(item.to_dict())}\n\n"
+                else:
+                    accumulated.append(item)
+                    yield f"data: {json.dumps(item)}\n\n"
 
         except LLMError as exc:
             had_error = True

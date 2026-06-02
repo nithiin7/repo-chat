@@ -1,5 +1,5 @@
 import { api, API_BASE } from "../api";
-import type { Chat, ChatMessage, ChatRequest, SourceChunk } from "@/types";
+import type { Chat, ChatMessage, ChatRequest, SourceChunk, TokenUsage } from "@/types";
 
 export function listChats(repoId: string): Promise<Chat[]> {
   return api.get<Chat[]>(`/repos/${encodeURIComponent(repoId)}/chats`);
@@ -38,7 +38,8 @@ export function chatStream(
   onSuggestions: (suggestions: string[]) => void,
   onContentDone: () => void,
   onError: (err: Event) => void,
-  onDone: () => void
+  onDone: () => void,
+  onUsage?: (usage: TokenUsage) => void,
 ): () => void {
   const controller = new AbortController();
 
@@ -83,6 +84,12 @@ export function chatStream(
                 onSuggestions(JSON.parse(data) as string[]);
               } catch {
                 // Malformed suggestions payload — skip silently
+              }
+            } else if (currentEvent === "usage") {
+              try {
+                if (onUsage) onUsage(JSON.parse(data) as TokenUsage);
+              } catch {
+                // Malformed usage payload — skip silently
               }
             } else {
               if (data === "[DONE]") {
