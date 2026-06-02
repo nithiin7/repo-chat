@@ -7,6 +7,7 @@ import { Activity, ArrowLeft, ChevronDown, ChevronRight, Download, FileText, Git
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { ThemeToggle } from '@/components/ui/theme-toggle'
 import LLMModeToggle from './LLMModeToggle'
+import ModelPicker from './ModelPicker'
 import MessageBubble from './MessageBubble'
 import ChatSidebar from './ChatSidebar'
 import HealthPanel from '@/components/health/HealthPanel'
@@ -457,6 +458,7 @@ const ChatWindow = ({ repo, repoId, chatId, chats: initialChats, initialMessages
               onStop={handleStop}
               streaming={streaming}
               mode={mode}
+              modelPicker={<ModelPicker mode={mode} disabled={streaming} />}
             />
           </motion.div>
         </div>

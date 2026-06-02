@@ -2,7 +2,6 @@
 
 import { useEffect, useRef } from 'react'
 import { SendHorizontal, Square } from 'lucide-react'
-import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
 import type { LLMMode } from '@/types'
 
@@ -13,16 +12,17 @@ interface ChatInputProps {
   onStop: () => void
   streaming: boolean
   mode: LLMMode
+  modelPicker?: React.ReactNode
 }
 
-const ChatInput = ({ input, onChange, onSubmit, onStop, streaming, mode }: ChatInputProps) => {
+const ChatInput = ({ input, onChange, onSubmit, onStop, streaming, mode, modelPicker }: ChatInputProps) => {
   const textareaRef = useRef<HTMLTextAreaElement>(null)
 
   useEffect(() => {
     const el = textareaRef.current
     if (!el) return
     el.style.height = 'auto'
-    el.style.height = `${Math.min(el.scrollHeight, 180)}px`
+    el.style.height = `${Math.min(el.scrollHeight, 220)}px`
   }, [input])
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
@@ -35,15 +35,12 @@ const ChatInput = ({ input, onChange, onSubmit, onStop, streaming, mode }: ChatI
   return (
     <div className="shrink-0 border-t border-border bg-background/90 px-4 py-4 backdrop-blur-md">
       <form
-        onSubmit={(e) => {
-          e.preventDefault()
-          onSubmit()
-        }}
-        className="mx-auto flex max-w-3xl items-end gap-2"
+        onSubmit={(e) => { e.preventDefault(); onSubmit() }}
+        className="mx-auto max-w-3xl"
       >
         <div
           className={cn(
-            'flex flex-1 items-end rounded-xl border bg-card px-4 py-2.5 transition-colors duration-150',
+            'flex flex-col rounded-xl border bg-card transition-colors duration-150',
             streaming ? 'border-border/40' : 'border-border focus-within:border-indigo-500/40',
           )}
         >
@@ -54,37 +51,39 @@ const ChatInput = ({ input, onChange, onSubmit, onStop, streaming, mode }: ChatI
             onKeyDown={handleKeyDown}
             disabled={streaming}
             placeholder={streaming ? 'Responding…' : 'Ask about this codebase…'}
-            rows={1}
-            className="max-h-44 flex-1 resize-none bg-transparent py-0.5 text-sm leading-relaxed text-foreground placeholder:text-muted-foreground outline-none disabled:opacity-40"
+            rows={3}
+            className="max-h-56 flex-1 resize-none bg-transparent px-4 pt-3 pb-2 text-sm leading-relaxed text-foreground placeholder:text-muted-foreground outline-none disabled:opacity-40"
           />
-        </div>
 
-        {streaming ? (
-          <Button
-            type="button"
-            onClick={onStop}
-            size="icon-lg"
-            className="h-auto w-9 self-stretch border border-border bg-card text-foreground hover:bg-muted"
-            aria-label="Stop generating"
-          >
-            <Square className="size-4 fill-current" />
-          </Button>
-        ) : (
-          <Button
-            type="submit"
-            size="icon-lg"
-            disabled={!input.trim()}
-            aria-label="Send message"
-            className="h-auto w-9 self-stretch"
-          >
-            <SendHorizontal className="size-4" />
-          </Button>
-        )}
+          <div className="flex items-center justify-between px-3 pb-2.5">
+            {modelPicker ?? <span />}
+
+            {streaming ? (
+              <button
+                type="button"
+                onClick={onStop}
+                aria-label="Stop generating"
+                className="flex size-8 items-center justify-center rounded-lg border border-border bg-background text-foreground transition-colors hover:bg-muted"
+              >
+                <Square className="size-3.5 fill-current" />
+              </button>
+            ) : (
+              <button
+                type="submit"
+                disabled={!input.trim()}
+                aria-label="Send message"
+                className="flex size-8 items-center justify-center rounded-lg bg-indigo-500 text-white transition-colors hover:bg-indigo-600 disabled:opacity-40 disabled:pointer-events-none"
+              >
+                <SendHorizontal className="size-3.5" />
+              </button>
+            )}
+          </div>
+        </div>
       </form>
 
-      <p className="mt-2.5 text-center text-[11px] text-muted-foreground/50">
+      <p className="mt-2 text-center text-[11px] text-muted-foreground/50">
         {mode === 'local' ? '⚡ Local — no data leaves your machine' : '☁ Cloud — data sent to LLM API'}
-        &nbsp;·&nbsp;Enter to send · Shift+Enter for newline
+        &nbsp;·&nbsp;Enter to send&nbsp;·&nbsp;Shift+Enter for newline
       </p>
     </div>
   )
