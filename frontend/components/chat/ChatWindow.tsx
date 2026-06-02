@@ -3,7 +3,7 @@
 import { useState, useRef, useEffect, useCallback } from 'react'
 import Link from 'next/link'
 import { motion } from 'framer-motion'
-import { Activity, ArrowLeft, ChevronDown, ChevronRight, GitFork, ListTree, PanelLeftClose, PanelLeftOpen, Search, Share2, X } from 'lucide-react'
+import { Activity, ArrowLeft, ChevronDown, ChevronRight, Download, FileText, GitFork, ListTree, PanelLeftClose, PanelLeftOpen, Printer, Search, Share2, X } from 'lucide-react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { ThemeToggle } from '@/components/ui/theme-toggle'
 import LLMModeToggle from './LLMModeToggle'
@@ -14,6 +14,7 @@ import ChatEmptyState from './ChatEmptyState'
 import ChatInput from '@/components/common/ChatInput'
 import { chatStream, getChatMessages, listChats } from '@/lib/api/chats'
 import { queryKeys } from '@/lib/api/queryKeys'
+import { exportMarkdown, exportPdf } from '@/lib/exportChat'
 import type { Chat, ChatMessage, LLMMode, Message, Repo } from '@/types'
 
 function dbMessagesToUi(dbMessages: ChatMessage[]): Message[] {
@@ -73,6 +74,9 @@ const ChatWindow = ({ repo, repoId, chatId, chats: initialChats, initialMessages
     initialData: initialChats,
   })
 
+  const [exportOpen, setExportOpen] = useState(false)
+  const exportRef = useRef<HTMLDivElement>(null)
+
   const cancelRef = useRef<(() => void) | null>(null)
   const scrollRef = useRef<HTMLDivElement>(null)
   const userScrolledUp = useRef(false)
@@ -81,6 +85,15 @@ const ChatWindow = ({ repo, repoId, chatId, chats: initialChats, initialMessages
     repo?.name ||
     repo?.url.replace(/^https?:\/\//, '').split('/').slice(1, 3).join('/') ||
     repoId
+
+  useEffect(() => {
+    if (!exportOpen) return
+    const handler = (e: MouseEvent) => {
+      if (!exportRef.current?.contains(e.target as Node)) setExportOpen(false)
+    }
+    document.addEventListener('mousedown', handler)
+    return () => document.removeEventListener('mousedown', handler)
+  }, [exportOpen])
 
   useEffect(() => {
     if (userScrolledUp.current) return
@@ -285,6 +298,39 @@ const ChatWindow = ({ repo, repoId, chatId, chats: initialChats, initialMessages
           >
             <Activity className="size-4" />
           </button>
+          <div ref={exportRef} className="relative">
+            <button
+              onClick={() => setExportOpen((o) => !o)}
+              aria-label="Export chat"
+              className={`flex size-8 items-center justify-center rounded-lg transition-colors hover:bg-muted ${exportOpen ? 'bg-muted text-foreground' : 'text-muted-foreground hover:text-foreground'}`}
+            >
+              <Download className="size-4" />
+            </button>
+            {exportOpen && (
+              <div className="absolute right-0 top-10 z-20 w-44 overflow-hidden rounded-lg border border-border bg-popover shadow-lg">
+                <button
+                  onClick={() => {
+                    exportMarkdown(messages, displayName, displayName)
+                    setExportOpen(false)
+                  }}
+                  className="flex w-full cursor-pointer items-center gap-2.5 px-3 py-2 text-left text-sm text-foreground hover:bg-muted"
+                >
+                  <FileText className="size-3.5 shrink-0 text-muted-foreground" />
+                  Markdown (.md)
+                </button>
+                <button
+                  onClick={() => {
+                    exportPdf(messages, displayName, displayName)
+                    setExportOpen(false)
+                  }}
+                  className="flex w-full cursor-pointer items-center gap-2.5 px-3 py-2 text-left text-sm text-foreground hover:bg-muted"
+                >
+                  <Printer className="size-3.5 shrink-0 text-muted-foreground" />
+                  Print / PDF
+                </button>
+              </div>
+            )}
+          </div>
           <LLMModeToggle mode={mode} onChange={setMode} disabled={streaming} />
           <ThemeToggle />
         </div>
