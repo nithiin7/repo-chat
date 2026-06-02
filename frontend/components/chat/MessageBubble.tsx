@@ -2,7 +2,7 @@
 
 import { useRef, useState } from 'react'
 import { motion } from 'framer-motion'
-import { AlertCircle, Bot, Check, Copy, User, Files } from 'lucide-react'
+import { AlertCircle, Bot, Check, Copy, GitBranch, Loader2, User, Files } from 'lucide-react'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import rehypeHighlight from 'rehype-highlight'
@@ -15,6 +15,7 @@ interface MessageBubbleProps {
   message: Message
   repoUrl?: string
   onSuggestionClick?: (question: string) => void
+  onFork?: (messageId: string) => Promise<void>
 }
 
 function CodeBlock({ children }: { children: React.ReactNode }) {
@@ -47,8 +48,9 @@ function CodeBlock({ children }: { children: React.ReactNode }) {
   )
 }
 
-const MessageBubble = ({ message, repoUrl, onSuggestionClick }: MessageBubbleProps) => {
+const MessageBubble = ({ message, repoUrl, onSuggestionClick, onFork }: MessageBubbleProps) => {
   const [drawerOpen, setDrawerOpen] = useState(false)
+  const [forking, setForking] = useState(false)
   const isUser = message.role === 'user'
   const hasSources = !message.streaming && (message.sources?.length ?? 0) > 0
   const hasSuggestions = !message.streaming && !message.error && (message.suggestions?.length ?? 0) > 0
@@ -74,8 +76,26 @@ const MessageBubble = ({ message, repoUrl, onSuggestionClick }: MessageBubblePro
       {/* Bubble + actions */}
       <div className={cn('flex max-w-[82%] flex-col gap-1.5', isUser && 'items-end')}>
         {isUser ? (
-          <div className="rounded-2xl rounded-tr-sm bg-indigo-500/20 px-4 py-2.5 text-sm leading-relaxed text-foreground ring-1 ring-indigo-500/20">
-            {message.content}
+          <div className="group/user relative">
+            <div className="rounded-2xl rounded-tr-sm bg-indigo-500/20 px-4 py-2.5 text-sm leading-relaxed text-foreground ring-1 ring-indigo-500/20">
+              {message.content}
+            </div>
+            {onFork && !message.streaming && (
+              <button
+                onClick={async () => {
+                  if (forking) return
+                  setForking(true)
+                  try { await onFork(message.id) } finally { setForking(false) }
+                }}
+                aria-label="Fork conversation from here"
+                title="Fork from here"
+                className="absolute -left-7 top-1/2 -translate-y-1/2 flex size-5 cursor-pointer items-center justify-center rounded text-muted-foreground opacity-0 transition-opacity group-hover/user:opacity-100 hover:text-indigo-400"
+              >
+                {forking
+                  ? <Loader2 className="size-3.5 animate-spin" />
+                  : <GitBranch className="size-3.5" />}
+              </button>
+            )}
           </div>
         ) : (
           <div

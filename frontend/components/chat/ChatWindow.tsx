@@ -12,7 +12,7 @@ import ChatSidebar from './ChatSidebar'
 import HealthPanel from '@/components/health/HealthPanel'
 import ChatEmptyState from './ChatEmptyState'
 import ChatInput from '@/components/common/ChatInput'
-import { chatStream, getChatMessages, listChats } from '@/lib/api/chats'
+import { chatStream, forkChat, getChatMessages, listChats } from '@/lib/api/chats'
 import { queryKeys } from '@/lib/api/queryKeys'
 import { exportMarkdown, exportPdf } from '@/lib/exportChat'
 import type { Chat, ChatMessage, LLMMode, Message, Repo } from '@/types'
@@ -226,6 +226,17 @@ const ChatWindow = ({ repo, repoId, chatId, chats: initialChats, initialMessages
     setStreaming(false)
   }
 
+  const handleFork = useCallback(async (messageId: string) => {
+    const newChat = await forkChat(activeChatId, messageId)
+    queryClient.setQueryData<Chat[]>(queryKeys.chats(repoId), (prev = []) => [newChat, ...prev])
+    setActiveChatId(newChat.id)
+    setMessages([])
+    userScrolledUp.current = false
+    window.history.pushState(null, '', `/chat/${repoId}/${newChat.id}`)
+    const msgs = await getChatMessages(newChat.id)
+    setMessages(dbMessagesToUi(msgs))
+  }, [activeChatId, repoId, queryClient])
+
   return (
     <div className="flex h-screen overflow-hidden flex-col bg-background text-foreground">
       {/* ── Sticky header ── */}
@@ -420,7 +431,7 @@ const ChatWindow = ({ repo, repoId, chatId, chats: initialChats, initialMessages
             ) : (
               <div className="mx-auto max-w-3xl px-4 py-8">
                 {messages.map((msg) => (
-                  <MessageBubble key={msg.id} message={msg} repoUrl={repo?.url} onSuggestionClick={submit} />
+                  <MessageBubble key={msg.id} message={msg} repoUrl={repo?.url} onSuggestionClick={submit} onFork={handleFork} />
                 ))}
               </div>
             )}

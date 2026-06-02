@@ -62,6 +62,10 @@ class PinChatRequest(BaseModel):
     is_pinned: bool
 
 
+class ForkChatRequest(BaseModel):
+    before_message_id: str | None = None
+
+
 class ChatMessageInfo(BaseModel):
     id: str
     chat_id: str

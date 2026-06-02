@@ -13,6 +13,7 @@ from backend.core.reranker import get_reranker
 from backend.core.retriever import SourceChunk
 from backend.persistence import (
     delete_chat,
+    fork_chat,
     get_chat,
     get_repo,
     list_messages,
@@ -21,7 +22,7 @@ from backend.persistence import (
     save_message,
     set_chat_title_if_default,
 )
-from backend.schemas import ChatInfo, ChatMessageInfo, ChatRequest, PinChatRequest, RenameChatRequest
+from backend.schemas import ChatInfo, ChatMessageInfo, ChatRequest, ForkChatRequest, PinChatRequest, RenameChatRequest
 
 logger = logging.getLogger(__name__)
 
@@ -99,6 +100,17 @@ async def chat(body: ChatRequest):
             "X-Accel-Buffering": "no",
         },
     )
+
+
+@router.post("/chats/{chat_id}/fork", response_model=ChatInfo)
+async def fork_chat_endpoint(chat_id: str, body: ForkChatRequest):
+    chat = await asyncio.to_thread(get_chat, chat_id)
+    if not chat:
+        raise HTTPException(status_code=404, detail=f"Chat '{chat_id}' not found.")
+    new_chat = await asyncio.to_thread(fork_chat, chat_id, body.before_message_id)
+    if not new_chat:
+        raise HTTPException(status_code=500, detail="Fork failed.")
+    return ChatInfo(**new_chat)
 
 
 @router.patch("/chats/{chat_id}/pin", response_model=ChatInfo)

@@ -25,6 +25,12 @@ export function getChatMessages(chatId: string): Promise<ChatMessage[]> {
   return api.get<ChatMessage[]>(`/chats/${encodeURIComponent(chatId)}/messages`);
 }
 
+export function forkChat(chatId: string, beforeMessageId: string | null): Promise<Chat> {
+  return api.post<Chat>(`/chats/${encodeURIComponent(chatId)}/fork`, {
+    before_message_id: beforeMessageId,
+  });
+}
+
 export function chatStream(
   body: ChatRequest,
   onToken: (token: string) => void,
