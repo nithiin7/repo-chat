@@ -32,7 +32,7 @@ from collections import defaultdict
 from dataclasses import asdict
 from functools import lru_cache
 from pathlib import Path
-from typing import Optional
+from typing import Callable, Optional
 
 import chromadb
 from llama_index.core import Document, StorageContext, VectorStoreIndex
@@ -159,7 +159,11 @@ def index_already_exists(repo_id: str) -> bool:
         return False
 
 
-def build_index(file_paths: list[Path], repo_id: str) -> int:
+def build_index(
+    file_paths: list[Path],
+    repo_id: str,
+    progress_callback: Callable[[int, int, str], None] | None = None,
+) -> int:
     """
     Chunk, embed, and store every file in file_paths under repo_id's
     ChromaDB collection. Parent chunks are saved to SQLite.
@@ -175,7 +179,7 @@ def build_index(file_paths: list[Path], repo_id: str) -> int:
     if not file_paths:
         raise ValueError(f"No files provided to index for repo '{repo_id}'.")
 
-    docs = _load_documents(file_paths)
+    docs = _load_documents(file_paths, progress_callback)
     if not docs:
         raise ValueError(f"All files were empty or unreadable for repo '{repo_id}'.")
     logger.info("Loaded %d / %d files for '%s'.", len(docs), len(file_paths), repo_id)
@@ -251,9 +255,15 @@ def delete_index(repo_id: str) -> None:
 # Internal — loading
 # ---------------------------------------------------------------------------
 
-def _load_documents(file_paths: list[Path]) -> list[Document]:
+def _load_documents(
+    file_paths: list[Path],
+    progress_callback: Callable[[int, int, str], None] | None = None,
+) -> list[Document]:
     docs: list[Document] = []
-    for path in file_paths:
+    total = len(file_paths)
+    for i, path in enumerate(file_paths):
+        if progress_callback:
+            progress_callback(i + 1, total, path.name)
         try:
             text = path.read_text(encoding="utf-8", errors="replace")
         except OSError as exc:

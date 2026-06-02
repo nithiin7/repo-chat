@@ -26,6 +26,13 @@ export interface IndexResponse {
   status: string;
 }
 
+export type IndexProgressEvent =
+  | { type: 'cloning' }
+  | { type: 'files_found'; total: number }
+  | { type: 'file'; current: number; total: number; name: string }
+  | { type: 'done'; repo_id: string; file_count: number; status: string }
+  | { type: 'error'; message: string }
+
 export interface ChatRequest {
   repo_id: string;
   question: string;

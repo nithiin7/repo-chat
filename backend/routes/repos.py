@@ -1,10 +1,12 @@
 import asyncio
 import hashlib
+import json
 import shutil
 from datetime import datetime, timezone
 from pathlib import Path
 
 from fastapi import APIRouter, HTTPException, Query
+from fastapi.responses import StreamingResponse
 
 from backend.config import get_settings
 from backend.core.fetcher import FetchResult, RepoFetchError, fetch_repo, get_remote_head
@@ -93,6 +95,88 @@ async def index_repo(body: IndexRequest):
         repo_id=repo_id,
         file_count=len(result.file_paths),
         status="reindexed" if body.force else "indexed",
+    )
+
+
+@router.post("/index/stream")
+async def index_repo_stream(body: IndexRequest):
+    url = str(body.repo_url)
+    repo_id = _repo_id_from_url(url)
+
+    async def event_stream():
+        queue: asyncio.Queue = asyncio.Queue()
+        loop = asyncio.get_running_loop()
+
+        def on_progress(current: int, total: int, name: str) -> None:
+            loop.call_soon_threadsafe(
+                queue.put_nowait,
+                {"type": "file", "current": current, "total": total, "name": name},
+            )
+
+        async def run() -> None:
+            try:
+                existing = await asyncio.to_thread(get_repo, repo_id)
+                if existing and not body.force:
+                    await queue.put({"type": "done", "repo_id": repo_id, "file_count": existing["file_count"], "status": "already_indexed"})
+                    return
+
+                if existing and body.force:
+                    await asyncio.to_thread(delete_index, repo_id)
+                    repo_dir = Path(get_settings().repos_dir) / existing["name"]
+                    if repo_dir.exists():
+                        await asyncio.to_thread(shutil.rmtree, str(repo_dir), True)
+
+                await queue.put({"type": "cloning"})
+
+                try:
+                    result: FetchResult = await asyncio.to_thread(
+                        fetch_repo, url, github_token=body.github_token
+                    )
+                except RepoFetchError as exc:
+                    await queue.put({"type": "error", "message": str(exc)})
+                    return
+
+                await queue.put({"type": "files_found", "total": len(result.file_paths)})
+
+                try:
+                    await asyncio.to_thread(build_index, result.file_paths, repo_id, on_progress)
+                except ValueError as exc:
+                    await queue.put({"type": "error", "message": str(exc)})
+                    return
+
+                await asyncio.to_thread(
+                    upsert_repo,
+                    repo_id,
+                    result.repo_name,
+                    url,
+                    datetime.now(timezone.utc).isoformat(),
+                    len(result.file_paths),
+                    result.head_commit or None,
+                )
+
+                await queue.put({
+                    "type": "done",
+                    "repo_id": repo_id,
+                    "file_count": len(result.file_paths),
+                    "status": "reindexed" if body.force else "indexed",
+                })
+            except Exception as exc:
+                await queue.put({"type": "error", "message": str(exc)})
+
+        task = asyncio.create_task(run())
+
+        while True:
+            event = await queue.get()
+            yield f"data: {json.dumps(event)}\n\n"
+            if event["type"] in ("done", "error"):
+                break
+
+        await task
+
+    return StreamingResponse(
+        event_stream(),
+        media_type="text/event-stream",
+        headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
     )
 
 

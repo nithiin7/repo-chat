@@ -1,44 +1,89 @@
 'use client'
 
-import { useState, useRef } from 'react'
-import { useMutation, useQueryClient } from '@tanstack/react-query'
+import { useRef, useState } from 'react'
+import { useQueryClient } from '@tanstack/react-query'
 import { AnimatePresence, motion } from 'framer-motion'
-import { Loader2, CheckCircle2, AlertCircle, ArrowRight, Link2, Lock } from 'lucide-react'
+import { AlertCircle, ArrowRight, CheckCircle2, FileCode2, Link2, Loader2, Lock } from 'lucide-react'
 import { Button } from '@/components/ui/button'
-import { indexRepo } from '@/lib/api/repos'
+import { indexRepoStream } from '@/lib/api/repos'
 import { queryKeys } from '@/lib/api/queryKeys'
 import { cn } from '@/lib/utils'
 
 type Status = 'idle' | 'indexing' | 'success' | 'error'
 
+type Progress =
+  | { phase: 'cloning' }
+  | { phase: 'loading'; current: number; total: number; filename: string }
+  | { phase: 'embedding' }
+
 const RepoInput = () => {
   const queryClient = useQueryClient()
   const inputRef = useRef<HTMLInputElement>(null)
+  const abortRef = useRef<AbortController | null>(null)
   const [url, setUrl] = useState('')
   const [token, setToken] = useState('')
   const [showToken, setShowToken] = useState(false)
   const [status, setStatus] = useState<Status>('idle')
+  const [progress, setProgress] = useState<Progress | null>(null)
   const [feedback, setFeedback] = useState<{ message: string; sub?: string; variant: 'success' | 'error' } | null>(null)
 
-  const { mutate: index } = useMutation({
-    mutationFn: (repoUrl: string) =>
-      indexRepo({ repo_url: repoUrl, github_token: token.trim() || undefined }),
-    onSuccess: (result) => {
-      setUrl('')
-      setStatus('success')
-      setFeedback({
-        message: `Successfully indexed ${result.file_count.toLocaleString()} files`,
-        sub: 'Your repository is ready — open a chat below',
-        variant: 'success',
-      })
-      void queryClient.invalidateQueries({ queryKey: queryKeys.repos() })
-      setTimeout(() => {
-        setStatus('idle')
-        setFeedback(null)
-      }, 5000)
-    },
-    onError: (err) => {
+  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault()
+    const trimmed = url.trim()
+    if (!trimmed || status === 'indexing') return
+
+    abortRef.current?.abort()
+    const abort = new AbortController()
+    abortRef.current = abort
+
+    setStatus('indexing')
+    setFeedback(null)
+    setProgress({ phase: 'cloning' })
+
+    try {
+      const stream = indexRepoStream(
+        { repo_url: trimmed, github_token: token.trim() || undefined },
+        abort.signal,
+      )
+
+      let fileCount = 0
+
+      for await (const event of stream) {
+        if (event.type === 'cloning') {
+          setProgress({ phase: 'cloning' })
+        } else if (event.type === 'files_found') {
+          setProgress({ phase: 'loading', current: 0, total: event.total, filename: '' })
+        } else if (event.type === 'file') {
+          fileCount = event.total
+          setProgress({ phase: 'loading', current: event.current, total: event.total, filename: event.name })
+          // After all files loaded, show embedding phase
+          if (event.current === event.total) {
+            setProgress({ phase: 'embedding' })
+          }
+        } else if (event.type === 'done') {
+          const count = event.file_count ?? fileCount
+          setUrl('')
+          setStatus('success')
+          setProgress(null)
+          setFeedback({
+            message: `Successfully indexed ${count.toLocaleString()} files`,
+            sub: 'Your repository is ready — open a chat below',
+            variant: 'success',
+          })
+          void queryClient.invalidateQueries({ queryKey: queryKeys.repos() })
+          setTimeout(() => {
+            setStatus('idle')
+            setFeedback(null)
+          }, 5000)
+          return
+        } else if (event.type === 'error') {
+          throw new Error(event.message)
+        }
+      }
+    } catch (err) {
+      if ((err as Error).name === 'AbortError') return
       setStatus('error')
+      setProgress(null)
       setFeedback({
         message: err instanceof Error ? err.message : 'Failed to index repository',
         sub: 'Check the URL is correct. For private repos, add a GitHub token above.',
@@ -49,16 +94,7 @@ const RepoInput = () => {
         setFeedback(null)
         inputRef.current?.focus()
       }, 6000)
-    },
-  })
-
-  const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
-    e.preventDefault()
-    const trimmed = url.trim()
-    if (!trimmed || status === 'indexing') return
-    setStatus('indexing')
-    setFeedback(null)
-    index(trimmed)
+    }
   }
 
   const borderColor = {
@@ -67,6 +103,11 @@ const RepoInput = () => {
     success: 'border-emerald-500/60',
     error: 'border-red-500/60',
   }[status]
+
+  const progressPercent =
+    progress?.phase === 'loading' && progress.total > 0
+      ? Math.round((progress.current / progress.total) * 100)
+      : null
 
   return (
     <div className="w-full">
@@ -156,37 +197,89 @@ const RepoInput = () => {
         </AnimatePresence>
       </form>
 
-      {/* Feedback banner */}
-      <AnimatePresence>
-        {feedback && (
+      {/* Progress bar / feedback banner */}
+      <AnimatePresence mode="wait">
+        {progress ? (
           <motion.div
-            initial={{ opacity: 0, y: -6, height: 0 }}
-            animate={{ opacity: 1, y: 0, height: 'auto' }}
-            exit={{ opacity: 0, y: -4, height: 0 }}
+            key="progress"
+            initial={{ opacity: 0, height: 0 }}
+            animate={{ opacity: 1, height: 'auto' }}
+            exit={{ opacity: 0, height: 0 }}
+            transition={{ duration: 0.2, ease: 'easeOut' }}
+            className="overflow-hidden"
+          >
+            <div className="mt-3 rounded-lg border border-border bg-muted/30 px-4 py-3">
+              {/* Label row */}
+              <div className="flex items-center justify-between gap-2 text-xs text-muted-foreground">
+                <div className="flex items-center gap-1.5 min-w-0">
+                  {progress.phase === 'loading' ? (
+                    <FileCode2 className="size-3.5 shrink-0" />
+                  ) : (
+                    <Loader2 className="size-3.5 shrink-0 animate-spin" />
+                  )}
+                  <span className="truncate">
+                    {progress.phase === 'cloning' && 'Cloning repository…'}
+                    {progress.phase === 'loading' && (
+                      progress.filename ? progress.filename : 'Loading files…'
+                    )}
+                    {progress.phase === 'embedding' && 'Embedding chunks…'}
+                  </span>
+                </div>
+                {progress.phase === 'loading' && progress.total > 0 && (
+                  <span className="shrink-0 tabular-nums">
+                    {progress.current}/{progress.total}
+                  </span>
+                )}
+              </div>
+
+              {/* Progress track */}
+              <div className="relative mt-2 h-1.5 w-full overflow-hidden rounded-full bg-muted">
+                {progress.phase === 'loading' && progressPercent !== null ? (
+                  <motion.div
+                    className="h-full rounded-full bg-primary"
+                    animate={{ width: `${progressPercent}%` }}
+                    transition={{ duration: 0.15, ease: 'easeOut' }}
+                  />
+                ) : (
+                  <motion.div
+                    className="absolute inset-y-0 w-1/3 rounded-full bg-primary/70"
+                    animate={{ left: ['-33%', '133%'] }}
+                    transition={{ duration: 1.4, repeat: Infinity, ease: 'easeInOut' }}
+                  />
+                )}
+              </div>
+            </div>
+          </motion.div>
+        ) : feedback ? (
+          <motion.div
+            key="feedback"
+            initial={{ opacity: 0, height: 0 }}
+            animate={{ opacity: 1, height: 'auto' }}
+            exit={{ opacity: 0, height: 0 }}
             transition={{ duration: 0.2, ease: 'easeOut' }}
             className="overflow-hidden"
           >
             <div
               className={cn(
-                'mt-3 flex items-start gap-2.5 rounded-lg px-4 py-3 text-sm',
+                'mt-3 rounded-lg px-4 py-3 text-sm',
                 feedback.variant === 'success' && 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-300',
                 feedback.variant === 'error' && 'bg-red-500/10 text-red-700 dark:text-red-300',
               )}
             >
-              {feedback.variant === 'success' ? (
-                <CheckCircle2 className="mt-0.5 size-4 shrink-0" />
-              ) : (
-                <AlertCircle className="mt-0.5 size-4 shrink-0" />
-              )}
-              <div>
-                <p className="font-medium">{feedback.message}</p>
-                {feedback.sub && (
-                  <p className="mt-0.5 opacity-75">{feedback.sub}</p>
+              <div className="flex items-center gap-2">
+                {feedback.variant === 'success' ? (
+                  <CheckCircle2 className="size-4 shrink-0" />
+                ) : (
+                  <AlertCircle className="size-4 shrink-0" />
                 )}
+                <p className="font-medium">{feedback.message}</p>
               </div>
+              {feedback.sub && (
+                <p className="mt-1 text-left text-xs opacity-75">{feedback.sub}</p>
+              )}
             </div>
           </motion.div>
-        )}
+        ) : null}
       </AnimatePresence>
     </div>
   )
