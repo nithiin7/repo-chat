@@ -46,7 +46,14 @@ async def ollama_models():
             if response.status_code != 200:
                 return {"models": []}
             data = response.json()
-            return {"models": [m["name"] for m in data.get("models", [])]}
+            models = []
+            for m in data.get("models", []):
+                name: str = m.get("name", "")
+                family: str = (m.get("details") or {}).get("family", "").lower()
+                if "embed" in name.lower() or family in {"bert", "nomic-bert"}:
+                    continue
+                models.append(name)
+            return {"models": models}
     except Exception:
         return {"models": []}
 
