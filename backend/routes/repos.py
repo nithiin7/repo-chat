@@ -68,7 +68,9 @@ async def index_repo(body: IndexRequest):
             await asyncio.to_thread(shutil.rmtree, str(repo_dir), True)
 
     try:
-        result: FetchResult = await asyncio.to_thread(fetch_repo, url)
+        result: FetchResult = await asyncio.to_thread(
+            fetch_repo, url, github_token=body.github_token
+        )
     except RepoFetchError as exc:
         raise HTTPException(status_code=422, detail=str(exc))
 

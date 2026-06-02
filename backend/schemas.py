@@ -10,6 +10,7 @@ from backend.core.llm import LLMMode
 class IndexRequest(BaseModel):
     repo_url: HttpUrl
     force: bool = False
+    github_token: str | None = None
 
 
 class IndexResponse(BaseModel):

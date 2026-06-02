@@ -17,6 +17,7 @@ export interface RepoStatus {
 export interface IndexRequest {
   repo_url: string;
   force?: boolean;
+  github_token?: string;
 }
 
 export interface IndexResponse {

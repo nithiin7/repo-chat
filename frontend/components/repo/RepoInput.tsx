@@ -3,7 +3,7 @@
 import { useState, useRef } from 'react'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { AnimatePresence, motion } from 'framer-motion'
-import { Loader2, CheckCircle2, AlertCircle, ArrowRight, Link2 } from 'lucide-react'
+import { Loader2, CheckCircle2, AlertCircle, ArrowRight, Link2, Lock } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { indexRepo } from '@/lib/api/repos'
 import { queryKeys } from '@/lib/api/queryKeys'
@@ -15,11 +15,14 @@ const RepoInput = () => {
   const queryClient = useQueryClient()
   const inputRef = useRef<HTMLInputElement>(null)
   const [url, setUrl] = useState('')
+  const [token, setToken] = useState('')
+  const [showToken, setShowToken] = useState(false)
   const [status, setStatus] = useState<Status>('idle')
   const [feedback, setFeedback] = useState<{ message: string; sub?: string; variant: 'success' | 'error' } | null>(null)
 
   const { mutate: index } = useMutation({
-    mutationFn: (repoUrl: string) => indexRepo({ repo_url: repoUrl }),
+    mutationFn: (repoUrl: string) =>
+      indexRepo({ repo_url: repoUrl, github_token: token.trim() || undefined }),
     onSuccess: (result) => {
       setUrl('')
       setStatus('success')
@@ -38,7 +41,7 @@ const RepoInput = () => {
       setStatus('error')
       setFeedback({
         message: err instanceof Error ? err.message : 'Failed to index repository',
-        sub: 'Check the URL and make sure it points to a public repo',
+        sub: 'Check the URL is correct. For private repos, add a GitHub token above.',
         variant: 'error',
       })
       setTimeout(() => {
@@ -111,6 +114,46 @@ const RepoInput = () => {
             )}
           </Button>
         </div>
+
+        {/* Private repo token toggle */}
+        <div className="mt-2 pl-1">
+          <button
+            type="button"
+            onClick={() => setShowToken((v) => !v)}
+            className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors"
+          >
+            <Lock className="size-3" />
+            {showToken ? 'Hide token' : 'Private repo? Add a GitHub token'}
+          </button>
+        </div>
+
+        <AnimatePresence>
+          {showToken && (
+            <motion.div
+              initial={{ opacity: 0, height: 0 }}
+              animate={{ opacity: 1, height: 'auto' }}
+              exit={{ opacity: 0, height: 0 }}
+              transition={{ duration: 0.15, ease: 'easeOut' }}
+              className="overflow-hidden"
+            >
+              <div className="mt-2 flex items-center gap-2 rounded-lg border border-border bg-muted/40 px-3 py-1.5">
+                <Lock className="size-3.5 shrink-0 text-muted-foreground" />
+                <input
+                  type="password"
+                  value={token}
+                  onChange={(e) => setToken(e.target.value)}
+                  placeholder="GitHub personal access token (repo scope)"
+                  disabled={status === 'indexing'}
+                  autoComplete="off"
+                  className="min-w-0 flex-1 bg-transparent text-xs text-foreground placeholder:text-muted-foreground outline-none disabled:opacity-60"
+                />
+              </div>
+              <p className="mt-1 pl-1 text-xs text-muted-foreground/70">
+                Token is sent only for this request and never stored.
+              </p>
+            </motion.div>
+          )}
+        </AnimatePresence>
       </form>
 
       {/* Feedback banner */}

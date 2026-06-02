@@ -32,7 +32,7 @@ const FEATURES = [
     icon: <GitFork className="size-5 text-violet-400" />,
     title: 'GitHub & Bitbucket support',
     description:
-      'Paste any public or private repo URL and CodeLens fetches, parses, and indexes the entire codebase automatically.',
+      'Paste any public or private repo URL. For private GitHub repos, expand the token field and paste your PAT — no env setup needed.',
   },
   {
     icon: <Cpu className="size-5 text-emerald-400" />,

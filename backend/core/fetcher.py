@@ -181,13 +181,22 @@ def _clone(
 
 # ----- provider-specific fetchers -------------------------------------------
 
-def fetch_github_repo(owner: str, repo_name: str, dest: Path) -> FetchResult:
-    """Clone a GitHub repository, injecting GITHUB_TOKEN when available."""
-    token = get_settings().github_token
+def fetch_github_repo(
+    owner: str,
+    repo_name: str,
+    dest: Path,
+    *,
+    token: str | None = None,
+) -> FetchResult:
+    """Clone a GitHub repository, injecting a token when available.
+
+    token takes precedence over the GITHUB_TOKEN env var.
+    """
+    resolved_token = token or get_settings().github_token
     display_url = f"https://github.com/{owner}/{repo_name}"
 
-    if token:
-        clone_url = f"https://{token}@github.com/{owner}/{repo_name}.git"
+    if resolved_token:
+        clone_url = f"https://{resolved_token}@github.com/{owner}/{repo_name}.git"
     else:
         clone_url = f"https://github.com/{owner}/{repo_name}.git"
 
@@ -228,7 +237,7 @@ def fetch_bitbucket_repo(owner: str, repo_name: str, dest: Path) -> FetchResult:
 
 # ----- public entry point ---------------------------------------------------
 
-def fetch_repo(repo_url: str) -> FetchResult:
+def fetch_repo(repo_url: str, *, github_token: str | None = None) -> FetchResult:
     """
     Parse repo_url, clone the repository to <repos_dir>/<repo-name> at depth 1,
     and return a FetchResult containing:
@@ -236,6 +245,7 @@ def fetch_repo(repo_url: str) -> FetchResult:
         - file_paths  : sorted list of every indexable source file
 
     Raises RepoFetchError for any URL, network, or authentication problem.
+    github_token overrides the GITHUB_TOKEN env var for this call only.
     """
     parsed = parse_repo_url(repo_url)
     provider: str = parsed["provider"]
@@ -247,7 +257,7 @@ def fetch_repo(repo_url: str) -> FetchResult:
     dest = repos_dir / repo_name
 
     if provider == "github":
-        return fetch_github_repo(owner, repo_name, dest)
+        return fetch_github_repo(owner, repo_name, dest, token=github_token)
     return fetch_bitbucket_repo(owner, repo_name, dest)
 
 
