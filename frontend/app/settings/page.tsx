@@ -144,8 +144,28 @@ const SettingsPage = () => {
     void queryClient.invalidateQueries({ queryKey: queryKeys.ollamaModels() });
   }
 
+  const KEY_PREFIXES: Record<CloudProvider, string> = {
+    anthropic: "sk-ant-",
+    openai: "sk-",
+    groq: "gsk_",
+    gemini: "AIza",
+  };
+
   function handleSave() {
     setSaveError(null);
+
+    const key = providerConfig[cloudProvider].key;
+    if (key) {
+      const expected = KEY_PREFIXES[cloudProvider];
+      if (!key.startsWith(expected)) {
+        setSaveError(
+          `${cloudProvider.charAt(0).toUpperCase() + cloudProvider.slice(1)} API keys should start with "${expected}"`
+        );
+        setSaveState("error");
+        return;
+      }
+    }
+
     const update: SettingsUpdate = {
       ollama_model: ollamaModel || undefined,
       cloud_provider: cloudProvider,

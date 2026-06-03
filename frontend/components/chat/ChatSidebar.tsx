@@ -7,6 +7,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { cn } from "@/lib/utils";
 import { createChat, deleteChatSession, listChats, pinChat, renameChat } from "@/lib/api/chats";
 import { queryKeys } from "@/lib/api/queryKeys";
+import { toast } from "@/components/ui/toast";
 import type { Chat } from "@/types";
 
 interface ChatSidebarProps {
@@ -38,9 +39,10 @@ const ChatSidebar = ({ repoId, activeChatId, onSelectChat }: ChatSidebarProps) =
     try {
       const chat = await createChat(repoId);
       queryClient.setQueryData<Chat[]>(queryKeys.chats(repoId), (old = []) => [chat, ...old]);
+      void queryClient.invalidateQueries({ queryKey: queryKeys.chats(repoId) });
       onSelectChat(chat);
     } catch {
-      // Silently ignore — backend may be unreachable
+      toast("Failed to create chat. Is the backend running?");
     } finally {
       setCreating(false);
     }
@@ -65,7 +67,7 @@ const ChatSidebar = ({ repoId, activeChatId, onSelectChat }: ChatSidebarProps) =
         queryClient.setQueryData(queryKeys.chats(repoId), updated);
       }
     } catch {
-      // Silently ignore
+      toast("Failed to delete chat");
     } finally {
       setDeletingId(null);
     }
@@ -89,7 +91,7 @@ const ChatSidebar = ({ repoId, activeChatId, onSelectChat }: ChatSidebarProps) =
         old.map((c) => (c.id === id ? updated : c))
       );
     } catch {
-      // Silently ignore
+      toast("Failed to rename chat");
     } finally {
       setEditingId(null);
     }
@@ -114,7 +116,7 @@ const ChatSidebar = ({ repoId, activeChatId, onSelectChat }: ChatSidebarProps) =
         return [...replaced.filter((c) => c.is_pinned), ...replaced.filter((c) => !c.is_pinned)];
       });
     } catch {
-      // Silently ignore
+      toast("Failed to update pin");
     } finally {
       setPinningId(null);
     }

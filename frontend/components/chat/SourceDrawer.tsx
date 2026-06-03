@@ -126,7 +126,8 @@ const SourceDrawer = ({ sources, repoUrl, open, onOpenChange }: SourceDrawerProp
     onOpenChange(o);
   };
 
-  const src = expandedIdx !== null ? sources[expandedIdx] : null;
+  // Bounds-check: sources array could shrink if the drawer re-renders with new props
+  const src = expandedIdx !== null && expandedIdx < sources.length ? sources[expandedIdx] : null;
 
   return (
     <Sheet open={open} onOpenChange={handleOpenChange}>
@@ -206,6 +207,7 @@ const SourceDrawer = ({ sources, repoUrl, open, onOpenChange }: SourceDrawerProp
                             <div key={i}>{i + 1}</div>
                           ))}
                         </div>
+                        {/* Safe: hljs.highlight() escapes all HTML entities before returning */}
                         <pre className="hljs flex-1 py-4 pr-8 pl-4">
                           <code dangerouslySetInnerHTML={{ __html: highlighted }} />
                         </pre>

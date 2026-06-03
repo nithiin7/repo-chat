@@ -32,6 +32,7 @@ import HealthPanel from "@/components/health/HealthPanel";
 import ChatEmptyState from "./ChatEmptyState";
 import ChatInput from "@/components/common/ChatInput";
 import { chatStream, forkChat, getChatMessages, listChats } from "@/lib/api/chats";
+import { toast } from "@/components/ui/toast";
 import type { DiffIndexResponse } from "@/types";
 import { queryKeys } from "@/lib/api/queryKeys";
 import { exportMarkdown, exportPdf } from "@/lib/exportChat";
@@ -53,6 +54,19 @@ interface NavContext {
   start_line: number;
   signature: string;
   snippet: string;
+}
+
+function isNavContext(v: unknown): v is NavContext {
+  if (typeof v !== "object" || v === null) return false;
+  const o = v as Record<string, unknown>;
+  return (
+    typeof o.name === "string" &&
+    typeof o.kind === "string" &&
+    typeof o.file_path === "string" &&
+    typeof o.start_line === "number" &&
+    typeof o.signature === "string" &&
+    typeof o.snippet === "string"
+  );
 }
 
 interface ChatWindowProps {
@@ -87,9 +101,12 @@ const ChatWindow = ({
       const raw = sessionStorage.getItem("codelens_nav_context");
       if (raw) {
         sessionStorage.removeItem("codelens_nav_context");
-        return JSON.parse(raw) as NavContext;
+        const parsed: unknown = JSON.parse(raw);
+        return isNavContext(parsed) ? parsed : null;
       }
-    } catch {}
+    } catch {
+      sessionStorage.removeItem("codelens_nav_context");
+    }
     return null;
   });
   const [navSnippetOpen, setNavSnippetOpen] = useState(false);
@@ -107,6 +124,7 @@ const ChatWindow = ({
   const exportRef = useRef<HTMLDivElement>(null);
 
   const cancelRef = useRef<(() => void) | null>(null);
+  const fetchTokenRef = useRef<symbol | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   const userScrolledUp = useRef(false);
 
@@ -143,6 +161,11 @@ const ChatWindow = ({
   const handleSelectChat = useCallback(
     async (chat: Chat) => {
       if (chat.id === activeChatId) return;
+
+      // Stamp this selection so a slower in-flight fetch cannot overwrite a newer one
+      const token = Symbol();
+      fetchTokenRef.current = token;
+
       setActiveChatId(chat.id);
       setMessages([]);
       setInput("");
@@ -154,9 +177,14 @@ const ChatWindow = ({
           queryFn: () => getChatMessages(chat.id),
           staleTime: 5 * 60 * 1000,
         });
-        setMessages(dbMessagesToUi(msgs));
+        if (fetchTokenRef.current === token) {
+          setMessages(dbMessagesToUi(msgs));
+        }
       } catch {
-        setMessages([]);
+        if (fetchTokenRef.current === token) {
+          toast("Failed to load messages");
+          setMessages([]);
+        }
       }
     },
     [activeChatId, repoId, queryClient]
@@ -222,6 +250,14 @@ const ChatWindow = ({
             if (!last || last.role !== "assistant") return prev;
             return [...prev.slice(0, -1), { ...last, streaming: false, suggestionsLoading: true }];
           });
+          // Safety fallback: clear the loading skeleton if suggestions never arrive
+          setTimeout(() => {
+            setMessages((prev) => {
+              const last = prev[prev.length - 1];
+              if (!last || last.role !== "assistant" || !last.suggestionsLoading) return prev;
+              return [...prev.slice(0, -1), { ...last, suggestionsLoading: false }];
+            });
+          }, 15_000);
         },
         () => {
           setMessages((prev) => {

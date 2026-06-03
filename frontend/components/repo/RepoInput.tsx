@@ -20,6 +20,18 @@ import { cn } from "@/lib/utils";
 
 type Status = "idle" | "indexing" | "success" | "error";
 
+function isValidRepoUrl(url: string): boolean {
+  try {
+    const { hostname, pathname } = new URL(url);
+    const knownHosts = ["github.com", "bitbucket.org"];
+    const isKnown = knownHosts.includes(hostname) || hostname.includes("gitlab");
+    const parts = pathname.split("/").filter(Boolean);
+    return isKnown && parts.length >= 2;
+  } catch {
+    return false;
+  }
+}
+
 type Progress =
   | { phase: "cloning" }
   | { phase: "loading"; current: number; total: number; filename: string }
@@ -46,6 +58,16 @@ const RepoInput = () => {
     e.preventDefault();
     const trimmed = url.trim();
     if (!trimmed || status === "indexing") return;
+
+    if (!isValidRepoUrl(trimmed)) {
+      setFeedback({
+        message: "Invalid repository URL",
+        sub: "Enter a GitHub, Bitbucket, or GitLab URL with an owner and repo name (e.g. github.com/owner/repo)",
+        variant: "error",
+      });
+      setTimeout(() => setFeedback(null), 6000);
+      return;
+    }
 
     abortRef.current?.abort();
     const abort = new AbortController();

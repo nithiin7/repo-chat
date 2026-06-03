@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { memo, useRef, useState } from "react";
 import { motion } from "framer-motion";
 import {
   AlertCircle,
@@ -233,4 +233,4 @@ const MessageBubble = ({ message, repoUrl, onSuggestionClick, onFork }: MessageB
   );
 };
 
-export default MessageBubble;
+export default memo(MessageBubble);
