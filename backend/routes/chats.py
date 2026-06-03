@@ -7,6 +7,7 @@ from fastapi import APIRouter, HTTPException
 from fastapi.responses import StreamingResponse
 
 from backend.config import get_settings
+from backend.core.diff_fetcher import format_diff_for_prompt
 from backend.core.llm import LLMError, TokenUsage, generate_suggestions, stream_answer
 from backend.core.hybrid_retriever import hybrid_retrieve
 from backend.core.reranker import get_reranker
@@ -15,6 +16,7 @@ from backend.persistence import (
     delete_chat,
     fork_chat,
     get_chat,
+    get_diff,
     get_repo,
     list_messages,
     pin_chat,
@@ -45,6 +47,12 @@ async def chat(body: ChatRequest):
         await asyncio.to_thread(save_message, body.chat_id, "user", body.question)
         await asyncio.to_thread(set_chat_title_if_default, body.chat_id, body.question)
 
+    diff_context: str | None = None
+    if body.diff_id:
+        diff = await asyncio.to_thread(get_diff, body.diff_id)
+        if diff:
+            diff_context = format_diff_for_prompt(diff)
+
     async def event_stream() -> AsyncGenerator[str, None]:
         accumulated: list[str] = []
         saved_sources: list | None = None
@@ -62,7 +70,7 @@ async def chat(body: ChatRequest):
             yield f"event: sources\ndata: {json.dumps(source_chunks)}\n\n"
 
             text_chunks = [sc["chunk"] for sc in source_chunks]
-            async for item in stream_answer(body.question, text_chunks, body.mode, history):
+            async for item in stream_answer(body.question, text_chunks, body.mode, history, diff_context):
                 if isinstance(item, TokenUsage):
                     yield f"event: usage\ndata: {json.dumps(item.to_dict())}\n\n"
                 else:

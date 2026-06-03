@@ -26,6 +26,7 @@ Paste a repo URL. CodeLens clones it, indexes every source file into a vector st
 - **Repo health summary** — auto-generated overview of complexity hotspots (function count + avg length per file), TODO/FIXME/HACK comments with file and line number, and a test coverage estimate derived from the symbol index; surfaced as a collapsible panel inside the chat view
 - **Streaming chat history** — each chat session retains message history so you can ask follow-up questions
 - **Code block actions** — hover any code block in a chat response to copy it to the clipboard; source file references include a direct link to the file in GitHub, Bitbucket, or GitLab
+- **PR & diff analysis** — paste a GitHub/Bitbucket PR URL, a commit URL, or a raw SHA into the chat header to load the diff as context; ask "what does this PR change?" or "are there any risks?" — the LLM answers against both the diff and the full codebase index
 
 ---
 
@@ -135,6 +136,9 @@ All other text files are chunked with a sentence splitter fallback.
 | `GET` | `/repos/{repo_id}/navigate?query=...&kind=function&limit=50` | Symbol navigator — returns functions/classes/methods parsed from the AST |
 | `GET` | `/repos/{repo_id}/deps` | Dependency graph — nodes (files) and edges (import relationships) for the entire repo |
 | `GET` | `/repos/{repo_id}/health` | Repo health summary — complexity hotspots, TODO/FIXME list, and test coverage estimate |
+| `POST` | `/repos/{repo_id}/diffs` | Fetch and index a PR or commit diff (accepts GitHub/Bitbucket PR URL, commit URL, or raw SHA) |
+| `GET` | `/repos/{repo_id}/diffs` | List all diffs indexed for a repo |
+| `DELETE` | `/diffs/{diff_id}` | Remove a diff |
 
 ---
 

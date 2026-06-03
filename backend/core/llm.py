@@ -104,16 +104,25 @@ _SYSTEM_PROMPT = (
 _NO_CONTEXT_MSG = "No relevant code excerpts were found for this question."
 
 
-def build_prompt(question: str, context_chunks: list[str]) -> str:
-    if not context_chunks:
-        return f"{_NO_CONTEXT_MSG}\n\nQuestion: {question}"
+def build_prompt(
+    question: str,
+    context_chunks: list[str],
+    diff_context: str | None = None,
+) -> str:
+    parts: list[str] = []
 
-    fenced = "\n\n---\n\n".join(context_chunks)
-    return (
-        f"Use the following code excerpts to answer the question.\n\n"
-        f"---\n\n{fenced}\n\n---\n\n"
-        f"Question: {question}"
-    )
+    if diff_context:
+        parts.append(diff_context)
+        parts.append("")
+
+    if context_chunks:
+        fenced = "\n\n---\n\n".join(context_chunks)
+        parts.append(f"Use the following code excerpts to answer the question.\n\n---\n\n{fenced}\n\n---")
+    else:
+        parts.append(_NO_CONTEXT_MSG)
+
+    parts.append(f"\nQuestion: {question}")
+    return "\n".join(parts)
 
 
 # ---------------------------------------------------------------------------
@@ -492,9 +501,10 @@ async def stream_answer(
     chunks: list[str],
     mode: LLMMode,
     history: list[dict[str, str]] | None = None,
+    diff_context: str | None = None,
 ) -> AsyncGenerator[str | TokenUsage, None]:
     compressed = await _compress_history(history or [], mode)
-    messages = [*compressed, {"role": "user", "content": build_prompt(question, chunks)}]
+    messages = [*compressed, {"role": "user", "content": build_prompt(question, chunks, diff_context)}]
     logger.debug(
         "stream_answer mode=%s question=%r chunks=%d history=%d",
         mode, question[:80], len(chunks), len(history or []),

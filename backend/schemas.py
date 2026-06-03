@@ -25,6 +25,7 @@ class ChatRequest(BaseModel):
     question: str
     mode: LLMMode = LLMMode.LOCAL
     chat_id: str | None = None
+    diff_id: str | None = None
 
 
 class RepoInfo(BaseModel):
@@ -187,6 +188,40 @@ class TestCoverageEstimate(BaseModel):
     coverage_ratio: float
     test_function_count: int
     total_function_count: int
+
+
+class DiffFile(BaseModel):
+    file_path: str
+    old_path: str | None = None
+    change_type: str
+    patch: str
+    additions: int
+    deletions: int
+
+
+class DiffIndexRequest(BaseModel):
+    source_url: str
+    github_token: str | None = None
+
+
+class DiffIndexResponse(BaseModel):
+    diff_id: str
+    title: str
+    files_changed: int
+    additions: int
+    deletions: int
+
+
+class DiffInfo(BaseModel):
+    id: str
+    repo_id: str
+    source_url: str | None
+    source_type: str
+    title: str
+    files_changed: int
+    additions: int
+    deletions: int
+    indexed_at: str
 
 
 class HealthSummaryResponse(BaseModel):

@@ -47,6 +47,32 @@ export interface ChatRequest {
   question: string;
   mode: "local" | "cloud";
   chat_id?: string;
+  diff_id?: string;
+}
+
+export interface DiffIndexRequest {
+  source_url: string;
+  github_token?: string;
+}
+
+export interface DiffIndexResponse {
+  diff_id: string;
+  title: string;
+  files_changed: number;
+  additions: number;
+  deletions: number;
+}
+
+export interface DiffInfo {
+  id: string;
+  repo_id: string;
+  source_url: string | null;
+  source_type: string;
+  title: string;
+  files_changed: number;
+  additions: number;
+  deletions: number;
+  indexed_at: string;
 }
 
 export type LLMMode = "local" | "cloud";

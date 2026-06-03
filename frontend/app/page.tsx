@@ -10,6 +10,7 @@ import {
   Cloud,
   GitBranch,
   GitFork,
+  GitPullRequest,
   Zap,
   Database,
   Search,
@@ -94,6 +95,12 @@ const FEATURES = [
     title: 'Code block actions',
     description:
       'Hover any code block in a response to copy it instantly. Source file references link directly to the file in GitHub, Bitbucket, or GitLab.',
+  },
+  {
+    icon: <GitPullRequest className="size-5 text-rose-400" />,
+    title: 'PR & diff analysis',
+    description:
+      'Paste a GitHub or Bitbucket PR URL, a commit URL, or a raw SHA to load the diff as chat context. Ask "what does this PR change?" or "are there any risks?" — the LLM answers against both the diff and the full codebase index.',
   },
 ]
 

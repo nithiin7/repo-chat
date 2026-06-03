@@ -9,7 +9,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from backend.persistence import init_db
-from backend.routes import chats, repos, settings
+from backend.routes import chats, diffs, repos, settings
 
 
 @asynccontextmanager
@@ -30,4 +30,5 @@ app.add_middleware(
 
 app.include_router(repos.router)
 app.include_router(chats.router)
+app.include_router(diffs.router)
 app.include_router(settings.router)

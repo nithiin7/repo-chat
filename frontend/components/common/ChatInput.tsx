@@ -3,6 +3,7 @@
 import { useEffect, useRef } from 'react'
 import { SendHorizontal, Square } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { Tip } from '@/components/ui/tooltip'
 import type { LLMMode } from '@/types'
 
 interface ChatInputProps {
@@ -59,23 +60,27 @@ const ChatInput = ({ input, onChange, onSubmit, onStop, streaming, mode, modelPi
             {modelPicker ?? <span />}
 
             {streaming ? (
-              <button
-                type="button"
-                onClick={onStop}
-                aria-label="Stop generating"
-                className="flex size-8 items-center justify-center rounded-lg border border-border bg-background text-foreground transition-colors hover:bg-muted"
-              >
-                <Square className="size-3.5 fill-current" />
-              </button>
+              <Tip label="Stop generating" side="top">
+                <button
+                  type="button"
+                  onClick={onStop}
+                  aria-label="Stop generating"
+                  className="flex size-8 cursor-pointer items-center justify-center rounded-lg border border-border bg-background text-foreground transition-colors hover:bg-muted"
+                >
+                  <Square className="size-3.5 fill-current" />
+                </button>
+              </Tip>
             ) : (
-              <button
-                type="submit"
-                disabled={!input.trim()}
-                aria-label="Send message"
-                className="flex size-8 items-center justify-center rounded-lg bg-indigo-500 text-white transition-colors hover:bg-indigo-600 disabled:opacity-40 disabled:pointer-events-none"
-              >
-                <SendHorizontal className="size-3.5" />
-              </button>
+              <Tip label="Send message" side="top">
+                <button
+                  type="submit"
+                  disabled={!input.trim()}
+                  aria-label="Send message"
+                  className="flex size-8 cursor-pointer items-center justify-center rounded-lg bg-indigo-500 text-white transition-colors hover:bg-indigo-600 disabled:opacity-40 disabled:pointer-events-none"
+                >
+                  <SendHorizontal className="size-3.5" />
+                </button>
+              </Tip>
             )}
           </div>
         </div>

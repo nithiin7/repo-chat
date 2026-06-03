@@ -8,6 +8,7 @@ from backend.persistence.chat import (
     pin_chat,
     rename_chat,
 )
+from backend.persistence.diff import delete_diff, get_diff, list_diffs, save_diff
 from backend.persistence.engine import init_db
 from backend.persistence.message import (
     list_messages,
@@ -38,4 +39,8 @@ __all__ = [
     "search_symbols",
     "list_symbols",
     "delete_symbols",
+    "save_diff",
+    "get_diff",
+    "list_diffs",
+    "delete_diff",
 ]

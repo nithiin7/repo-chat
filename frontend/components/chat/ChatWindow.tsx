@@ -4,8 +4,10 @@ import { useState, useRef, useEffect, useCallback } from 'react'
 import Link from 'next/link'
 import { motion } from 'framer-motion'
 import { Activity, ArrowLeft, ChevronDown, ChevronRight, Download, FileText, GitFork, ListTree, PanelLeftClose, PanelLeftOpen, Printer, Search, Share2, X } from 'lucide-react'
+import DiffPanel from './DiffPanel'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { ThemeToggle } from '@/components/ui/theme-toggle'
+import { Tip } from '@/components/ui/tooltip'
 import LLMModeToggle from './LLMModeToggle'
 import ModelPicker from './ModelPicker'
 import MessageBubble from './MessageBubble'
@@ -14,6 +16,7 @@ import HealthPanel from '@/components/health/HealthPanel'
 import ChatEmptyState from './ChatEmptyState'
 import ChatInput from '@/components/common/ChatInput'
 import { chatStream, forkChat, getChatMessages, listChats } from '@/lib/api/chats'
+import type { DiffIndexResponse } from '@/types'
 import { queryKeys } from '@/lib/api/queryKeys'
 import { exportMarkdown, exportPdf } from '@/lib/exportChat'
 import type { Chat, ChatMessage, LLMMode, Message, Repo } from '@/types'
@@ -75,6 +78,7 @@ const ChatWindow = ({ repo, repoId, chatId, chats: initialChats, initialMessages
     initialData: initialChats,
   })
 
+  const [activeDiff, setActiveDiff] = useState<DiffIndexResponse | null>(null)
   const [exportOpen, setExportOpen] = useState(false)
   const exportRef = useRef<HTMLDivElement>(null)
 
@@ -152,7 +156,7 @@ const ChatWindow = ({ repo, repoId, chatId, chats: initialChats, initialMessages
       )
 
       const cancel = chatStream(
-        { repo_id: repoId, question: q, mode, chat_id: activeChatId },
+        { repo_id: repoId, question: q, mode, chat_id: activeChatId, diff_id: activeDiff?.diff_id },
         (token) => {
           setMessages((prev) => {
             const last = prev[prev.length - 1]
@@ -220,7 +224,7 @@ const ChatWindow = ({ repo, repoId, chatId, chats: initialChats, initialMessages
 
       cancelRef.current = cancel
     },
-    [streaming, mode, repoId, activeChatId, queryClient],
+    [streaming, mode, repoId, activeChatId, queryClient, activeDiff],
   )
 
   const handleStop = () => {
@@ -255,23 +259,27 @@ const ChatWindow = ({ repo, repoId, chatId, chats: initialChats, initialMessages
         className="sticky top-0 z-10 flex shrink-0 items-center justify-between gap-4 border-b border-border bg-background/90 px-4 py-3 backdrop-blur-md"
       >
         <div className="flex min-w-0 items-center gap-2.5">
-          <Link
-            href="/dashboard"
-            aria-label="Back to repositories"
-            className="flex size-8 shrink-0 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
-          >
-            <ArrowLeft className="size-4" />
-          </Link>
+          <Tip label="Back to repositories" side="bottom">
+            <Link
+              href="/dashboard"
+              aria-label="Back to repositories"
+              className="flex size-8 shrink-0 cursor-pointer items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+            >
+              <ArrowLeft className="size-4" />
+            </Link>
+          </Tip>
 
           <div className="mx-1 h-5 w-px shrink-0 bg-border" aria-hidden />
 
-          <button
-            onClick={() => setSidebarOpen((o) => !o)}
-            aria-label={sidebarOpen ? 'Close sidebar' : 'Open sidebar'}
-            className="flex size-8 shrink-0 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
-          >
-            {sidebarOpen ? <PanelLeftClose className="size-4" /> : <PanelLeftOpen className="size-4" />}
-          </button>
+          <Tip label={sidebarOpen ? 'Close sidebar' : 'Open sidebar'} side="bottom">
+            <button
+              onClick={() => setSidebarOpen((o) => !o)}
+              aria-label={sidebarOpen ? 'Close sidebar' : 'Open sidebar'}
+              className="flex size-8 shrink-0 cursor-pointer items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+            >
+              {sidebarOpen ? <PanelLeftClose className="size-4" /> : <PanelLeftOpen className="size-4" />}
+            </button>
+          </Tip>
 
           <div className="mx-1 h-5 w-px shrink-0 bg-border" aria-hidden />
 
@@ -289,42 +297,52 @@ const ChatWindow = ({ repo, repoId, chatId, chats: initialChats, initialMessages
         </div>
 
         <div className="flex items-center gap-1.5">
-          <Link
-            href={`/navigate/${repoId}`}
-            aria-label="Symbol navigator"
-            className="flex size-8 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
-          >
-            <ListTree className="size-4" />
-          </Link>
-          <Link
-            href={`/search/${repoId}`}
-            aria-label="Search codebase"
-            className="flex size-8 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
-          >
-            <Search className="size-4" />
-          </Link>
-          <Link
-            href={`/depmap/${repoId}`}
-            aria-label="Dependency map"
-            className="flex size-8 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
-          >
-            <Share2 className="size-4" />
-          </Link>
-          <button
-            onClick={() => setHealthOpen((o) => !o)}
-            aria-label={healthOpen ? 'Close health panel' : 'Open health panel'}
-            className={`flex size-8 items-center justify-center rounded-lg transition-colors hover:bg-muted ${healthOpen ? 'bg-emerald-500/10 text-emerald-400' : 'text-muted-foreground hover:text-foreground'}`}
-          >
-            <Activity className="size-4" />
-          </button>
-          <div ref={exportRef} className="relative">
-            <button
-              onClick={() => setExportOpen((o) => !o)}
-              aria-label="Export chat"
-              className={`flex size-8 items-center justify-center rounded-lg transition-colors hover:bg-muted ${exportOpen ? 'bg-muted text-foreground' : 'text-muted-foreground hover:text-foreground'}`}
+          <Tip label="Symbol navigator" side="bottom">
+            <Link
+              href={`/navigate/${repoId}`}
+              aria-label="Symbol navigator"
+              className="flex size-8 cursor-pointer items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
             >
-              <Download className="size-4" />
+              <ListTree className="size-4" />
+            </Link>
+          </Tip>
+          <Tip label="Search codebase" side="bottom">
+            <Link
+              href={`/search/${repoId}`}
+              aria-label="Search codebase"
+              className="flex size-8 cursor-pointer items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+            >
+              <Search className="size-4" />
+            </Link>
+          </Tip>
+          <Tip label="Dependency map" side="bottom">
+            <Link
+              href={`/depmap/${repoId}`}
+              aria-label="Dependency map"
+              className="flex size-8 cursor-pointer items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+            >
+              <Share2 className="size-4" />
+            </Link>
+          </Tip>
+          <Tip label={healthOpen ? 'Close health panel' : 'Repo health'} side="bottom">
+            <button
+              onClick={() => setHealthOpen((o) => !o)}
+              aria-label={healthOpen ? 'Close health panel' : 'Open health panel'}
+              className={`flex size-8 cursor-pointer items-center justify-center rounded-lg transition-colors hover:bg-muted ${healthOpen ? 'bg-emerald-500/10 text-emerald-400' : 'text-muted-foreground hover:text-foreground'}`}
+            >
+              <Activity className="size-4" />
             </button>
+          </Tip>
+          <div ref={exportRef} className="relative">
+            <Tip label="Export chat" side="bottom">
+              <button
+                onClick={() => setExportOpen((o) => !o)}
+                aria-label="Export chat"
+                className={`flex size-8 cursor-pointer items-center justify-center rounded-lg transition-colors hover:bg-muted ${exportOpen ? 'bg-muted text-foreground' : 'text-muted-foreground hover:text-foreground'}`}
+              >
+                <Download className="size-4" />
+              </button>
+            </Tip>
             {exportOpen && (
               <div className="absolute right-0 top-10 z-20 w-44 overflow-hidden rounded-lg border border-border bg-popover shadow-lg">
                 <button
@@ -350,6 +368,12 @@ const ChatWindow = ({ repo, repoId, chatId, chats: initialChats, initialMessages
               </div>
             )}
           </div>
+          <DiffPanel
+            repoId={repoId}
+            activeDiff={activeDiff}
+            onDiffLoaded={setActiveDiff}
+            onDiffCleared={() => setActiveDiff(null)}
+          />
           <LLMModeToggle mode={mode} onChange={setMode} disabled={streaming} />
           <ThemeToggle />
         </div>
