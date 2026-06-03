@@ -59,7 +59,7 @@ async def chat(body: ChatRequest):
         had_error = False
         try:
             source_chunks: list[SourceChunk] = await asyncio.to_thread(
-                hybrid_retrieve, body.repo_id, body.question
+                hybrid_retrieve, body.repo_id, body.question, 5, body.scope_paths
             )
             if get_settings().use_reranker:
                 source_chunks = await asyncio.to_thread(

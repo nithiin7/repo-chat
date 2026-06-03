@@ -80,3 +80,7 @@ export function checkRepoStatus(repoId: string): Promise<RepoStatus> {
 export function deleteRepo(repoId: string): Promise<{ status: string }> {
   return api.del<{ status: string }>(`/repos/${encodeURIComponent(repoId)}`);
 }
+
+export function getRepoFiles(repoId: string): Promise<string[]> {
+  return api.get<string[]>(`/repos/${encodeURIComponent(repoId)}/files`);
+}

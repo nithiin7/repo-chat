@@ -26,6 +26,7 @@ class ChatRequest(BaseModel):
     mode: LLMMode = LLMMode.LOCAL
     chat_id: str | None = None
     diff_id: str | None = None
+    scope_paths: list[str] | None = None
 
 
 class RepoInfo(BaseModel):

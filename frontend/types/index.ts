@@ -48,6 +48,7 @@ export interface ChatRequest {
   mode: "local" | "cloud";
   chat_id?: string;
   diff_id?: string;
+  scope_paths?: string[];
 }
 
 export interface DiffIndexRequest {

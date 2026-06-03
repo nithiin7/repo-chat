@@ -25,6 +25,19 @@ from backend.core.retriever import SourceChunk, _expand_to_parents
 _cache: dict[str, "HybridRetriever"] = {}
 
 
+def _matches_scope(file_path: str, scope_paths: list[str]) -> bool:
+    """Return True if file_path falls within any of the given relative scope paths."""
+    for scope in scope_paths:
+        scope = scope.rstrip("/")
+        # Exact file match: absolute path ends with /relative/path
+        if file_path.endswith("/" + scope):
+            return True
+        # Folder match: absolute path contains /scope/ as a directory segment
+        if ("/" + scope + "/") in file_path:
+            return True
+    return False
+
+
 def _tokenize(text: str) -> list[str]:
     return re.findall(r"\w+", text.lower())
 
@@ -93,28 +106,34 @@ class HybridRetriever:
         tokenized = [_tokenize(c["chunk"]) for c in all_chunks]
         self._bm25 = BM25Okapi(tokenized) if tokenized else None
 
-    def get_relevant_documents(self, query: str, top_k: int = 5) -> list[SourceChunk]:
+    def get_relevant_documents(
+        self, query: str, top_k: int = 5, scope_paths: Optional[list[str]] = None
+    ) -> list[SourceChunk]:
         """Return top_k SourceChunks fused from vector + BM25 via RRF, expanded to parents."""
-        n = top_k * 2
+        # Over-fetch when scoping so filtering doesn't starve results
+        n = top_k * (3 if scope_paths else 2)
 
-        vector_hits = self._vector_retrieve(query, n)
-        bm25_hits = self._bm25_retrieve(query, n)
+        vector_hits = self._vector_retrieve(query, n, scope_paths)
+        bm25_hits = self._bm25_retrieve(query, n, scope_paths)
 
         merged = _rrf_merge([vector_hits, bm25_hits])[:top_k]
         return _expand_to_parents(self._repo_id, merged)
 
     # ------------------------------------------------------------------
 
-    def _vector_retrieve(self, query: str, n: int) -> list[tuple[str, SourceChunk]]:
+    def _vector_retrieve(
+        self, query: str, n: int, scope_paths: Optional[list[str]] = None
+    ) -> list[tuple[str, SourceChunk]]:
         nodes = self._index.as_retriever(similarity_top_k=n).retrieve(query)
-        return [
-            (
-                _doc_id(
-                    node.node.metadata.get("file_path", ""),
-                    node.get_content(),
-                ),
+        results = []
+        for node in nodes:
+            fp = node.node.metadata.get("file_path", "")
+            if scope_paths and not _matches_scope(fp, scope_paths):
+                continue
+            results.append((
+                _doc_id(fp, node.get_content()),
                 SourceChunk(
-                    file_path=node.node.metadata.get("file_path", ""),
+                    file_path=fp,
                     chunk=node.get_content(),
                     score=float(node.score) if node.score is not None else 0.0,
                     chunk_type=node.node.metadata.get("chunk_type", "module"),
@@ -122,30 +141,41 @@ class HybridRetriever:
                     chunk_index=int(node.node.metadata.get("chunk_index", 0)),
                     parent_id=node.node.metadata.get("parent_id", ""),
                 ),
-            )
-            for node in nodes
-        ]
+            ))
+        return results
 
-    def _bm25_retrieve(self, query: str, n: int) -> list[tuple[str, SourceChunk]]:
+    def _bm25_retrieve(
+        self, query: str, n: int, scope_paths: Optional[list[str]] = None
+    ) -> list[tuple[str, SourceChunk]]:
         if self._bm25 is None or not self._all_chunks:
             return []
 
-        scores = self._bm25.get_scores(_tokenize(query))
+        chunks = self._all_chunks
+        if scope_paths:
+            chunks = [c for c in chunks if _matches_scope(c["file_path"], scope_paths)]
+        if not chunks:
+            return []
+
+        # Re-score only the in-scope subset
+        tokenized = [_tokenize(c["chunk"]) for c in chunks]
+        bm25 = BM25Okapi(tokenized)
+        scores = bm25.get_scores(_tokenize(query))
+
         top_indices = sorted(
             range(len(scores)), key=lambda i: scores[i], reverse=True
         )[:n]
 
         return [
             (
-                _doc_id(self._all_chunks[i]["file_path"], self._all_chunks[i]["chunk"]),
+                _doc_id(chunks[i]["file_path"], chunks[i]["chunk"]),
                 SourceChunk(
-                    file_path=self._all_chunks[i]["file_path"],
-                    chunk=self._all_chunks[i]["chunk"],
+                    file_path=chunks[i]["file_path"],
+                    chunk=chunks[i]["chunk"],
                     score=float(scores[i]),
-                    chunk_type=self._all_chunks[i]["chunk_type"],
-                    symbol_name=self._all_chunks[i]["symbol_name"],
-                    chunk_index=self._all_chunks[i]["chunk_index"],
-                    parent_id=self._all_chunks[i]["parent_id"],
+                    chunk_type=chunks[i]["chunk_type"],
+                    symbol_name=chunks[i]["symbol_name"],
+                    chunk_index=chunks[i]["chunk_index"],
+                    parent_id=chunks[i]["parent_id"],
                 ),
             )
             for i in top_indices
@@ -195,8 +225,13 @@ def invalidate_cache(repo_id: str) -> None:
     _cache.pop(repo_id, None)
 
 
-def hybrid_retrieve(repo_id: str, question: str, top_k: int = 5) -> list[SourceChunk]:
+def hybrid_retrieve(
+    repo_id: str,
+    question: str,
+    top_k: int = 5,
+    scope_paths: Optional[list[str]] = None,
+) -> list[SourceChunk]:
     """Drop-in replacement for core.retriever.retrieve using hybrid BM25 + vector search."""
     if repo_id not in _cache:
         _cache[repo_id] = make_hybrid_retriever(repo_id)
-    return _cache[repo_id].get_relevant_documents(question, top_k)
+    return _cache[repo_id].get_relevant_documents(question, top_k, scope_paths)

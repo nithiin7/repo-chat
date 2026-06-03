@@ -147,7 +147,7 @@ const ModelPicker = ({ mode, disabled }: ModelPickerProps) => {
         disabled={disabled || !settings}
         onClick={() => setOpen(o => !o)}
         className={cn(
-          'flex items-center gap-1 rounded-md border border-border bg-card px-2.5 py-1.5 text-xs text-muted-foreground transition-colors hover:bg-muted hover:text-foreground',
+          'flex cursor-pointer items-center gap-1 rounded-md border border-border bg-card px-2.5 py-1.5 text-xs text-muted-foreground transition-colors hover:bg-muted hover:text-foreground',
           open && 'bg-muted text-foreground',
           (disabled || !settings) && 'pointer-events-none opacity-50',
         )}

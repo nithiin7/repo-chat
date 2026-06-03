@@ -15,6 +15,7 @@ from backend.persistence.message import (
     save_message,
     set_chat_title_if_default,
 )
+from backend.persistence.parent_chunk import list_file_paths
 from backend.persistence.repo import delete_repo, get_repo, list_repos, upsert_repo
 from backend.persistence.symbol import delete_symbols, insert_symbols, list_symbols, search_symbols
 
@@ -43,4 +44,5 @@ __all__ = [
     "get_diff",
     "list_diffs",
     "delete_diff",
+    "list_file_paths",
 ]

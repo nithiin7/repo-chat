@@ -39,6 +39,17 @@ def delete_parent_chunks(repo_id: str) -> None:
         session.commit()
 
 
+def list_file_paths(repo_id: str) -> list[str]:
+    """Return distinct file paths for all parent chunks in a repo."""
+    with Session(_get_engine()) as session:
+        rows = session.exec(
+            select(ParentChunk.file_path)
+            .where(ParentChunk.repo_id == repo_id)
+            .distinct()
+        ).all()
+    return sorted(rows)
+
+
 def delete_parent_chunks_for_files(repo_id: str, file_paths: list[str]) -> None:
     """Delete parent chunks for specific files only (used by incremental sync)."""
     if not file_paths:

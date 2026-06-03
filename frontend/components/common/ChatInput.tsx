@@ -14,9 +14,10 @@ interface ChatInputProps {
   streaming: boolean
   mode: LLMMode
   modelPicker?: React.ReactNode
+  scopeSelector?: React.ReactNode
 }
 
-const ChatInput = ({ input, onChange, onSubmit, onStop, streaming, mode, modelPicker }: ChatInputProps) => {
+const ChatInput = ({ input, onChange, onSubmit, onStop, streaming, mode, modelPicker, scopeSelector }: ChatInputProps) => {
   const textareaRef = useRef<HTMLTextAreaElement>(null)
 
   useEffect(() => {
@@ -57,7 +58,10 @@ const ChatInput = ({ input, onChange, onSubmit, onStop, streaming, mode, modelPi
           />
 
           <div className="flex items-center justify-between px-3 pb-2.5">
-            {modelPicker ?? <span />}
+            <div className="flex items-center gap-2">
+              {modelPicker}
+              {scopeSelector}
+            </div>
 
             {streaming ? (
               <Tip label="Stop generating" side="top">

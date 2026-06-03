@@ -18,6 +18,7 @@ from backend.persistence import (
     delete_repo,
     get_repo,
     list_chats,
+    list_file_paths,
     list_repos,
     list_symbols,
     search_symbols,
@@ -335,6 +336,16 @@ async def create_repo_chat(repo_id: str, body: CreateChatRequest = CreateChatReq
         raise HTTPException(status_code=404, detail=f"Repo '{repo_id}' not indexed.")
     chat = await asyncio.to_thread(create_chat, repo_id, body.title)
     return ChatInfo(**chat)
+
+
+@router.get("/repos/{repo_id}/files", response_model=list[str])
+async def list_repo_files(repo_id: str):
+    existing = await asyncio.to_thread(get_repo, repo_id)
+    if not existing:
+        raise HTTPException(status_code=404, detail=f"Repo '{repo_id}' not found.")
+    repo_root = str(Path(get_settings().repos_dir) / existing["name"]) + "/"
+    abs_paths = await asyncio.to_thread(list_file_paths, repo_id)
+    return sorted(p.removeprefix(repo_root) for p in abs_paths)
 
 
 @router.get("/repos/{repo_id}/search", response_model=SearchResponse)

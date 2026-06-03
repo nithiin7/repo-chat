@@ -5,6 +5,7 @@ import Link from 'next/link'
 import { motion } from 'framer-motion'
 import { Activity, ArrowLeft, ChevronDown, ChevronRight, Download, FileText, GitFork, ListTree, PanelLeftClose, PanelLeftOpen, Printer, Search, Share2, X } from 'lucide-react'
 import DiffPanel from './DiffPanel'
+import ScopeSelector from './ScopeSelector'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { ThemeToggle } from '@/components/ui/theme-toggle'
 import { Tip } from '@/components/ui/tooltip'
@@ -70,6 +71,7 @@ const ChatWindow = ({ repo, repoId, chatId, chats: initialChats, initialMessages
     return null
   })
   const [navSnippetOpen, setNavSnippetOpen] = useState(false)
+  const [scopePath, setScopePath] = useState<string | null>(null)
 
   // Seed chats cache from server-fetched data; ChatSidebar shares this query key
   useQuery({
@@ -156,7 +158,7 @@ const ChatWindow = ({ repo, repoId, chatId, chats: initialChats, initialMessages
       )
 
       const cancel = chatStream(
-        { repo_id: repoId, question: q, mode, chat_id: activeChatId, diff_id: activeDiff?.diff_id },
+        { repo_id: repoId, question: q, mode, chat_id: activeChatId, diff_id: activeDiff?.diff_id, scope_paths: scopePath ? [scopePath] : undefined },
         (token) => {
           setMessages((prev) => {
             const last = prev[prev.length - 1]
@@ -224,7 +226,7 @@ const ChatWindow = ({ repo, repoId, chatId, chats: initialChats, initialMessages
 
       cancelRef.current = cancel
     },
-    [streaming, mode, repoId, activeChatId, queryClient, activeDiff],
+    [streaming, mode, repoId, activeChatId, queryClient, activeDiff, scopePath],
   )
 
   const handleStop = () => {
@@ -483,6 +485,14 @@ const ChatWindow = ({ repo, repoId, chatId, chats: initialChats, initialMessages
               streaming={streaming}
               mode={mode}
               modelPicker={<ModelPicker mode={mode} disabled={streaming} />}
+              scopeSelector={
+                <ScopeSelector
+                  repoId={repoId}
+                  scopePath={scopePath}
+                  onChange={setScopePath}
+                  disabled={streaming}
+                />
+              }
             />
           </motion.div>
         </div>
