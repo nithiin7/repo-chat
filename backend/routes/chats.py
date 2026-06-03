@@ -74,8 +74,19 @@ async def chat(body: ChatRequest):
 
     if is_multi_repo:
         repos_data = await asyncio.gather(
-            *[asyncio.to_thread(get_repo, rid) for rid in body.repo_ids]  # type: ignore[union-attr]
+            *[asyncio.to_thread(get_repo, rid) for rid in body.repo_ids],  # type: ignore[union-attr]
+            return_exceptions=True,
         )
+        errored = [
+            body.repo_ids[i]  # type: ignore[index]
+            for i, r in enumerate(repos_data)
+            if isinstance(r, BaseException)
+        ]
+        if errored:
+            raise HTTPException(
+                status_code=500,
+                detail=f"Failed to look up repos: {', '.join(errored)}",
+            )
         missing = [body.repo_ids[i] for i, r in enumerate(repos_data) if not r]  # type: ignore[index]
         if missing:
             raise HTTPException(
@@ -114,15 +125,23 @@ async def chat(body: ChatRequest):
         accumulated: list[str] = []
         saved_sources: list | None = None
         had_error = False
-        repo_id_for_log = ",".join(body.repo_ids) if is_multi_repo else body.repo_id
+        repo_id_for_log = (
+            ",".join(body.repo_ids)
+            if is_multi_repo and body.repo_ids
+            else (body.repo_id or "unknown")
+        )
         try:
             if is_multi_repo:
                 retrieve_results = await asyncio.gather(
                     *[
                         asyncio.to_thread(hybrid_retrieve, rid, body.question, 4, None)
                         for rid in body.repo_ids  # type: ignore[union-attr]
-                    ]
+                    ],
+                    return_exceptions=True,
                 )
+                retrieve_results = [
+                    r if not isinstance(r, BaseException) else [] for r in retrieve_results
+                ]
                 source_chunks: list[SourceChunk] = []
                 for rid, chunks in zip(body.repo_ids, retrieve_results, strict=True):  # type: ignore[union-attr]
                     for chunk in chunks:

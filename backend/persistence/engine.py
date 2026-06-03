@@ -1,7 +1,7 @@
 from pathlib import Path
 
 from backend.config import get_settings
-from sqlalchemy import event, text
+from sqlalchemy import event, exc, text
 from sqlalchemy.engine import Engine
 from sqlmodel import SQLModel, create_engine
 
@@ -33,13 +33,22 @@ def init_db() -> None:
     """Create tables if they don't exist. Call once at app startup."""
     engine = _get_engine()
     SQLModel.metadata.create_all(engine)
-    # Add columns introduced after initial schema (safe no-op if already present)
+
+    def _add_column_if_missing(conn, table: str, col_ddl: str) -> None:
+        try:
+            conn.execute(text(col_ddl))
+            conn.commit()
+        except exc.OperationalError:
+            conn.rollback()  # column already exists (concurrent startup or re-run)
+
     with engine.connect() as conn:
-        cols = {row[1] for row in conn.execute(text("PRAGMA table_info(chats)"))}
-        if "is_pinned" not in cols:
-            conn.execute(text("ALTER TABLE chats ADD COLUMN is_pinned INTEGER NOT NULL DEFAULT 0"))
-            conn.commit()
-        repo_cols = {row[1] for row in conn.execute(text("PRAGMA table_info(repos)"))}
-        if "branch" not in repo_cols:
-            conn.execute(text("ALTER TABLE repos ADD COLUMN branch TEXT"))
-            conn.commit()
+        _add_column_if_missing(
+            conn,
+            "chats",
+            "ALTER TABLE chats ADD COLUMN is_pinned INTEGER NOT NULL DEFAULT 0",
+        )
+        _add_column_if_missing(
+            conn,
+            "repos",
+            "ALTER TABLE repos ADD COLUMN branch TEXT",
+        )

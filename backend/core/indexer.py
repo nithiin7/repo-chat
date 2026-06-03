@@ -27,6 +27,7 @@ returns the existing count immediately without re-processing any files.
 
 import logging
 import re
+import threading
 import uuid
 from collections import defaultdict
 from collections.abc import Callable
@@ -161,6 +162,17 @@ def index_already_exists(repo_id: str) -> bool:
         return False
 
 
+_index_locks: dict[str, threading.Lock] = {}
+_index_locks_mutex = threading.Lock()
+
+
+def _get_repo_lock(repo_id: str) -> threading.Lock:
+    with _index_locks_mutex:
+        if repo_id not in _index_locks:
+            _index_locks[repo_id] = threading.Lock()
+        return _index_locks[repo_id]
+
+
 def build_index(
     file_paths: list[Path],
     repo_id: str,
@@ -173,6 +185,15 @@ def build_index(
     Returns the total number of child chunks stored in ChromaDB.
     Raises ValueError when file_paths is empty or all files are unreadable.
     """
+    with _get_repo_lock(repo_id):
+        return _build_index_locked(file_paths, repo_id, progress_callback)
+
+
+def _build_index_locked(
+    file_paths: list[Path],
+    repo_id: str,
+    progress_callback: Callable[[int, int, str], None] | None = None,
+) -> int:
     if index_already_exists(repo_id):
         count = get_chroma_collection(repo_id).count()
         logger.info("Repo '%s' already indexed (%d chunks) — skipping.", repo_id, count)

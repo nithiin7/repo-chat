@@ -81,22 +81,16 @@ async def update_settings(body: SettingsUpdate):
         updates["cloud_provider"] = body.cloud_provider
     if body.anthropic_model is not None:
         updates["anthropic_model"] = body.anthropic_model
-    if body.anthropic_api_key is not None:
-        updates["anthropic_api_key"] = body.anthropic_api_key
+    # API keys are intentionally NOT persisted to settings.json — they must be
+    # set via environment variables or .env to avoid plaintext secrets on disk.
     if body.openai_model is not None:
         updates["openai_model"] = body.openai_model
     if body.openai_base_url is not None:
         updates["openai_base_url"] = body.openai_base_url
-    if body.openai_api_key is not None:
-        updates["openai_api_key"] = body.openai_api_key
     if body.groq_model is not None:
         updates["groq_model"] = body.groq_model
-    if body.groq_api_key is not None:
-        updates["groq_api_key"] = body.groq_api_key
     if body.gemini_model is not None:
         updates["gemini_model"] = body.gemini_model
-    if body.gemini_api_key is not None:
-        updates["gemini_api_key"] = body.gemini_api_key
 
     if body.suggest_related_questions is not None:
         updates["suggest_related_questions"] = body.suggest_related_questions

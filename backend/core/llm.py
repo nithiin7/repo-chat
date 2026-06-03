@@ -52,8 +52,8 @@ class TokenUsage:
         }
 
 
-# (input $/M tokens, output $/M tokens) — sorted longest-key-first at runtime
-_PRICING: dict[str, tuple[float, float]] = {
+# (input $/M tokens, output $/M tokens) — sorted longest-key-first for prefix matching
+_PRICING_RAW: dict[str, tuple[float, float]] = {
     "claude-opus-4": (15.0, 75.0),
     "claude-sonnet-4": (3.0, 15.0),
     "claude-haiku-4": (0.80, 4.0),
@@ -80,12 +80,17 @@ _PRICING: dict[str, tuple[float, float]] = {
     "gemini-1.5-flash": (0.075, 0.30),
 }
 
+# Pre-sorted once at import time: longest key first so prefix matching is correct.
+_PRICING: list[tuple[str, tuple[float, float]]] = sorted(
+    _PRICING_RAW.items(), key=lambda kv: len(kv[0]), reverse=True
+)
+
 
 def _compute_cost(model: str, input_tokens: int, output_tokens: int) -> float | None:
     model_lower = model.lower()
-    for key in sorted(_PRICING, key=len, reverse=True):
+    for key, prices in _PRICING:
         if key in model_lower:
-            in_price, out_price = _PRICING[key]
+            in_price, out_price = prices
             return (input_tokens * in_price + output_tokens * out_price) / 1_000_000
     return None
 
@@ -164,7 +169,10 @@ async def _compress_history(history: list[dict[str, str]], mode: "LLMMode") -> l
     try:
         summary = await _complete(_COMPRESS_PROMPT.format(dialogue=dialogue[:4000]), mode)
     except Exception:
-        return recent  # fallback: drop old turns silently
+        logger.warning(
+            "History compression failed; returning full uncompressed history.", exc_info=True
+        )
+        return history
 
     return [
         {"role": "user", "content": f"[Earlier conversation summary: {summary}]"},
@@ -450,52 +458,72 @@ async def _complete(prompt: str, mode: LLMMode) -> str:
     settings = get_settings()
     if mode is LLMMode.LOCAL:
         url = f"{settings.ollama_base_url.rstrip('/')}/api/generate"
-        async with httpx.AsyncClient(timeout=httpx.Timeout(60.0)) as client:
-            resp = await client.post(
-                url, json={"model": settings.ollama_model, "prompt": prompt, "stream": False}
-            )
-            return resp.json().get("response", "")
+        try:
+            async with httpx.AsyncClient(timeout=httpx.Timeout(60.0)) as client:
+                resp = await client.post(
+                    url, json={"model": settings.ollama_model, "prompt": prompt, "stream": False}
+                )
+                if resp.status_code != 200:
+                    raise LLMError(f"Ollama returned HTTP {resp.status_code} for completion")
+                return resp.json().get("response", "")
+        except httpx.ConnectError as exc:
+            raise LLMError(
+                f"Cannot reach Ollama at '{settings.ollama_base_url}'. "
+                "Make sure Ollama is running (`ollama serve`)."
+            ) from exc
     elif mode is LLMMode.CLOUD:
         provider = settings.cloud_provider
-        if provider == "openai":
-            client = openai.AsyncOpenAI(
-                api_key=settings.openai_api_key, base_url=settings.openai_base_url
-            )
-            resp = await client.chat.completions.create(
-                model=settings.openai_model,
-                max_tokens=200,
-                messages=[{"role": "user", "content": prompt}],
-            )
-            return resp.choices[0].message.content or "" if resp.choices else ""
-        elif provider == "groq":
-            client = openai.AsyncOpenAI(
-                api_key=settings.groq_api_key, base_url="https://api.groq.com/openai/v1"
-            )
-            resp = await client.chat.completions.create(
-                model=settings.groq_model,
-                max_tokens=200,
-                messages=[{"role": "user", "content": prompt}],
-            )
-            return resp.choices[0].message.content or "" if resp.choices else ""
-        elif provider == "gemini":
-            client = openai.AsyncOpenAI(
-                api_key=settings.gemini_api_key,
-                base_url="https://generativelanguage.googleapis.com/v1beta/openai/",
-            )
-            resp = await client.chat.completions.create(
-                model=settings.gemini_model,
-                max_tokens=200,
-                messages=[{"role": "user", "content": prompt}],
-            )
-            return resp.choices[0].message.content or "" if resp.choices else ""
-        else:
-            ac = anthropic.AsyncAnthropic(api_key=settings.anthropic_api_key)
-            msg = await ac.messages.create(
-                model=settings.anthropic_model,
-                max_tokens=200,
-                messages=[{"role": "user", "content": prompt}],
-            )
-            return msg.content[0].text if msg.content else ""
+        try:
+            if provider == "openai":
+                client = openai.AsyncOpenAI(
+                    api_key=settings.openai_api_key, base_url=settings.openai_base_url
+                )
+                resp = await client.chat.completions.create(
+                    model=settings.openai_model,
+                    max_tokens=200,
+                    messages=[{"role": "user", "content": prompt}],
+                )
+                return resp.choices[0].message.content or "" if resp.choices else ""
+            elif provider == "groq":
+                client = openai.AsyncOpenAI(
+                    api_key=settings.groq_api_key, base_url="https://api.groq.com/openai/v1"
+                )
+                resp = await client.chat.completions.create(
+                    model=settings.groq_model,
+                    max_tokens=200,
+                    messages=[{"role": "user", "content": prompt}],
+                )
+                return resp.choices[0].message.content or "" if resp.choices else ""
+            elif provider == "gemini":
+                client = openai.AsyncOpenAI(
+                    api_key=settings.gemini_api_key,
+                    base_url="https://generativelanguage.googleapis.com/v1beta/openai/",
+                )
+                resp = await client.chat.completions.create(
+                    model=settings.gemini_model,
+                    max_tokens=200,
+                    messages=[{"role": "user", "content": prompt}],
+                )
+                return resp.choices[0].message.content or "" if resp.choices else ""
+            else:
+                ac = anthropic.AsyncAnthropic(api_key=settings.anthropic_api_key)
+                msg = await ac.messages.create(
+                    model=settings.anthropic_model,
+                    max_tokens=200,
+                    messages=[{"role": "user", "content": prompt}],
+                )
+                return msg.content[0].text if msg.content else ""
+        except (
+            openai.AuthenticationError,
+            openai.RateLimitError,
+            openai.APIConnectionError,
+            openai.APIStatusError,
+            anthropic.AuthenticationError,
+            anthropic.RateLimitError,
+            anthropic.APIConnectionError,
+            anthropic.APIStatusError,
+        ) as exc:
+            raise LLMError(f"Cloud API error during completion ({provider}): {exc}") from exc
     return ""
 
 

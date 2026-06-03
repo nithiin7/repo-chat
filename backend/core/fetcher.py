@@ -401,6 +401,7 @@ def get_remote_head(repo_url: str, branch: str | None = None) -> str | None:
             clone_url = f"https://{token}@github.com/{owner}/{repo_name}.git"
         else:
             clone_url = f"https://github.com/{owner}/{repo_name}.git"
+        display_url = f"https://github.com/{owner}/{repo_name}.git"
     else:
         username = settings.bitbucket_username
         app_password = settings.bitbucket_app_password
@@ -408,6 +409,7 @@ def get_remote_head(repo_url: str, branch: str | None = None) -> str | None:
             clone_url = f"https://{username}:{app_password}@bitbucket.org/{owner}/{repo_name}.git"
         else:
             clone_url = f"https://bitbucket.org/{owner}/{repo_name}.git"
+        display_url = f"https://bitbucket.org/{owner}/{repo_name}.git"
 
     ref = f"refs/heads/{branch}" if branch else "HEAD"
 
@@ -420,6 +422,10 @@ def get_remote_head(repo_url: str, branch: str | None = None) -> str | None:
             sha = output.split()[0]
             if len(sha) == 40:
                 return sha
-    except Exception:
-        pass
+    except Exception as exc:
+        import logging
+
+        logging.getLogger(__name__).debug(
+            "ls-remote failed for %s: %s", display_url, type(exc).__name__
+        )
     return None

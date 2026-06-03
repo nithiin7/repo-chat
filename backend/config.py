@@ -50,6 +50,9 @@ class Settings(BaseSettings):
     bitbucket_username: str = ""
     bitbucket_app_password: str = ""
 
+    # CORS — comma-separated list of allowed origins
+    cors_origins: str = "http://localhost:3000,http://127.0.0.1:3000"
+
     # Misc
     repos_dir: str = "./repos"
 
@@ -63,14 +66,32 @@ def _overlay_path() -> Path:
     return Path(base) / "settings.json"
 
 
+_SECRET_KEYS = frozenset(
+    {
+        "anthropic_api_key",
+        "openai_api_key",
+        "groq_api_key",
+        "gemini_api_key",
+        "github_token",
+        "bitbucket_username",
+        "bitbucket_app_password",
+    }
+)
+
+
 def _load_overlay() -> dict:
     path = _overlay_path()
     if not path.exists():
         return {}
     try:
-        return json.loads(path.read_text(encoding="utf-8"))
-    except (json.JSONDecodeError, OSError):
+        data = json.loads(path.read_text(encoding="utf-8"))
+    except (json.JSONDecodeError, OSError) as exc:
+        import logging
+
+        logging.getLogger(__name__).warning("settings.json unreadable, ignoring overlay: %s", exc)
         return {}
+    # Strip any secrets that were persisted by older versions of the app.
+    return {k: v for k, v in data.items() if k not in _SECRET_KEYS}
 
 
 def get_settings() -> Settings:

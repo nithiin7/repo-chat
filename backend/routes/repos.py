@@ -183,13 +183,19 @@ async def index_repo_stream(body: IndexRequest):
 
         task = asyncio.create_task(run())
 
-        while True:
-            event = await queue.get()
-            yield f"data: {json.dumps(event)}\n\n"
-            if event["type"] in ("done", "error"):
-                break
-
-        await task
+        try:
+            while True:
+                event = await queue.get()
+                yield f"data: {json.dumps(event)}\n\n"
+                if event["type"] in ("done", "error"):
+                    break
+        finally:
+            if not task.done():
+                task.cancel()
+            try:
+                await task
+            except asyncio.CancelledError:
+                pass
 
     return StreamingResponse(
         event_stream(),
@@ -327,13 +333,19 @@ async def sync_repo_stream(repo_id: str):
 
         task = asyncio.create_task(run())
 
-        while True:
-            event = await queue.get()
-            yield f"data: {json.dumps(event)}\n\n"
-            if event["type"] in ("done", "error"):
-                break
-
-        await task
+        try:
+            while True:
+                event = await queue.get()
+                yield f"data: {json.dumps(event)}\n\n"
+                if event["type"] in ("done", "error"):
+                    break
+        finally:
+            if not task.done():
+                task.cancel()
+            try:
+                await task
+            except asyncio.CancelledError:
+                pass
 
     return StreamingResponse(
         event_stream(),
@@ -349,10 +361,12 @@ async def list_repo_chats(repo_id: str):
 
 
 @router.post("/repos/{repo_id}/chats", response_model=ChatInfo)
-async def create_repo_chat(repo_id: str, body: CreateChatRequest = CreateChatRequest()):
+async def create_repo_chat(repo_id: str, body: CreateChatRequest | None = None):
     existing = await asyncio.to_thread(get_repo, repo_id)
     if not existing:
         raise HTTPException(status_code=404, detail=f"Repo '{repo_id}' not indexed.")
+    if body is None:
+        body = CreateChatRequest()
     chat = await asyncio.to_thread(create_chat, repo_id, body.title)
     return ChatInfo(**chat)
 
@@ -370,7 +384,7 @@ async def list_repo_files(repo_id: str):
 @router.get("/repos/{repo_id}/search", response_model=SearchResponse)
 async def search_repo(
     repo_id: str,
-    query: str = Query(..., min_length=1),
+    query: str = Query(..., min_length=1, max_length=2000),
     top_k: int = Query(default=10, ge=1, le=50),
 ):
     existing = await asyncio.to_thread(get_repo, repo_id)
@@ -387,7 +401,7 @@ async def search_repo(
 @router.get("/repos/{repo_id}/navigate", response_model=NavigateResponse)
 async def navigate_repo(
     repo_id: str,
-    query: str = Query(default="", min_length=0),
+    query: str = Query(default="", min_length=0, max_length=2000),
     kind: str | None = Query(default=None, pattern="^(function|class|method)$"),
     limit: int = Query(default=50, ge=1, le=200),
 ):
