@@ -2,9 +2,8 @@
 Pydantic request/response models for the CodeLens API.
 """
 
-from pydantic import BaseModel, HttpUrl
-
 from backend.core.llm import LLMMode
+from pydantic import BaseModel, HttpUrl
 
 
 class IndexRequest(BaseModel):
@@ -83,6 +82,7 @@ class ChatMessageInfo(BaseModel):
 
 class SettingsView(BaseModel):
     """Safe settings representation — API keys replaced by presence booleans."""
+
     ollama_base_url: str
     ollama_model: str
     cloud_provider: str
@@ -153,9 +153,9 @@ class NavigateResponse(BaseModel):
 
 
 class DepNode(BaseModel):
-    id: str    # POSIX path relative to repo root
-    label: str # filename only
-    ext: str   # e.g. ".py", ".ts"
+    id: str  # POSIX path relative to repo root
+    label: str  # filename only
+    ext: str  # e.g. ".py", ".ts"
 
 
 class DepEdge(BaseModel):

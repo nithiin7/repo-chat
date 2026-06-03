@@ -1,7 +1,6 @@
-from sqlmodel import Session, select
-
 from backend.persistence.engine import _get_engine
 from backend.tables import Repo
+from sqlmodel import Session, select
 
 
 def upsert_repo(

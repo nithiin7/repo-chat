@@ -29,22 +29,21 @@ import logging
 import re
 import uuid
 from collections import defaultdict
+from collections.abc import Callable
 from dataclasses import asdict
 from functools import lru_cache
 from pathlib import Path
-from typing import Callable, Optional
 
 import chromadb
-from llama_index.core import Document, StorageContext, VectorStoreIndex
+from backend.config import get_settings
+from backend.core.symbol_extractor import ExtractedSymbol, extract_symbols
 from langchain_text_splitters import Language, RecursiveCharacterTextSplitter
-from llama_index.core.schema import TextNode
+from llama_index.core import Document, StorageContext, VectorStoreIndex
 from llama_index.core.embeddings import BaseEmbedding
+from llama_index.core.schema import TextNode
 from llama_index.embeddings.huggingface import HuggingFaceEmbedding
 from llama_index.embeddings.ollama import OllamaEmbedding
 from llama_index.vector_stores.chroma import ChromaVectorStore
-
-from backend.config import get_settings
-from backend.core.symbol_extractor import ExtractedSymbol, extract_symbols
 
 logger = logging.getLogger(__name__)
 
@@ -91,6 +90,7 @@ _FALLBACK_CHILD_OVERLAP = 64
 # Helpers — cached singletons
 # ---------------------------------------------------------------------------
 
+
 @lru_cache(maxsize=1)
 def _get_chroma_client() -> chromadb.PersistentClient:
     path = str(get_settings().chroma_persist_dir)
@@ -105,6 +105,7 @@ def get_embed_model() -> BaseEmbedding:
         return HuggingFaceEmbedding(model_name=model_name)
     return OllamaEmbedding(model_name=model_name)
 
+
 _get_embed_model = get_embed_model  # backward-compat alias
 
 
@@ -118,7 +119,7 @@ def _sanitize_name(repo_id: str) -> str:
 
 
 def _make_splitter(
-    lang: Optional[Language],
+    lang: Language | None,
     chunk_size: int,
     chunk_overlap: int,
     fallback_size: int,
@@ -144,6 +145,7 @@ def _make_splitter(
 # ---------------------------------------------------------------------------
 # Public API
 # ---------------------------------------------------------------------------
+
 
 def get_chroma_collection(repo_id: str) -> chromadb.Collection:
     return _get_chroma_client().get_or_create_collection(
@@ -187,11 +189,14 @@ def build_index(
     child_nodes, parent_dicts = _build_chunks(docs)
     logger.info(
         "Produced %d parent + %d child chunks from %d documents.",
-        len(parent_dicts), len(child_nodes), len(docs),
+        len(parent_dicts),
+        len(child_nodes),
+        len(docs),
     )
 
     # Persist parent chunks to SQLite first
     from backend.persistence.parent_chunk import save_parent_chunks
+
     save_parent_chunks(repo_id, parent_dicts)
 
     # Embed child chunks and store in ChromaDB
@@ -210,6 +215,7 @@ def build_index(
     logger.info("Stored %d child chunks for repo '%s'.", count, repo_id)
 
     from backend.core.hybrid_retriever import invalidate_cache as _invalidate_hybrid
+
     _invalidate_hybrid(repo_id)
 
     _index_symbols(file_paths, repo_id)
@@ -219,6 +225,7 @@ def build_index(
 
 def _index_symbols(file_paths: list[Path], repo_id: str) -> None:
     from backend.persistence.symbol import delete_symbols, insert_symbols
+
     try:
         delete_symbols(repo_id)
         symbols = extract_symbols(file_paths)
@@ -261,6 +268,7 @@ def sync_index(
         delete_symbols_for_files(repo_id, all_affected)
 
     from backend.core.hybrid_retriever import invalidate_cache as _invalidate_hybrid
+
     _invalidate_hybrid(repo_id)
 
     if not changed_files:
@@ -287,13 +295,17 @@ def sync_index(
     try:
         symbols = extract_symbols(changed_files)
         inserted = insert_symbols(repo_id, [asdict(s) for s in symbols])
-        logger.info("Synced %d symbols for %d file(s) in repo '%s'.", inserted, len(changed_files), repo_id)
+        logger.info(
+            "Synced %d symbols for %d file(s) in repo '%s'.", inserted, len(changed_files), repo_id
+        )
     except Exception as exc:
         logger.warning("Symbol sync failed for '%s': %s", repo_id, exc)
 
     logger.info(
         "Sync complete for repo '%s': %d child chunks added for %d file(s).",
-        repo_id, len(child_nodes), len(changed_files),
+        repo_id,
+        len(child_nodes),
+        len(changed_files),
     )
     return len(child_nodes), len(changed_files)
 
@@ -324,6 +336,7 @@ def delete_index(repo_id: str) -> None:
 # ---------------------------------------------------------------------------
 # Internal — loading
 # ---------------------------------------------------------------------------
+
 
 def _load_documents(
     file_paths: list[Path],
@@ -358,6 +371,7 @@ def _load_documents(
 # Internal — two-pass chunking with metadata enrichment
 # ---------------------------------------------------------------------------
 
+
 def _build_chunks(
     docs: list[Document],
 ) -> tuple[list[TextNode], list[dict]]:
@@ -377,19 +391,21 @@ def _build_chunks(
     for lang, lang_docs in by_lang.items():
         parent_splitter = _make_splitter(
             lang,
-            _PARENT_CHUNK_SIZE, _PARENT_CHUNK_OVERLAP,
-            _FALLBACK_PARENT_SIZE, _FALLBACK_PARENT_OVERLAP,
+            _PARENT_CHUNK_SIZE,
+            _PARENT_CHUNK_OVERLAP,
+            _FALLBACK_PARENT_SIZE,
+            _FALLBACK_PARENT_OVERLAP,
         )
         child_splitter = _make_splitter(
             lang,
-            _CHILD_CHUNK_SIZE, _CHILD_CHUNK_OVERLAP,
-            _FALLBACK_CHILD_SIZE, _FALLBACK_CHILD_OVERLAP,
+            _CHILD_CHUNK_SIZE,
+            _CHILD_CHUNK_OVERLAP,
+            _FALLBACK_CHILD_SIZE,
+            _FALLBACK_CHILD_OVERLAP,
         )
 
         for doc in lang_docs:
-            child_nodes, parent_dicts = _split_doc(
-                doc, parent_splitter, child_splitter
-            )
+            child_nodes, parent_dicts = _split_doc(doc, parent_splitter, child_splitter)
             all_child_nodes.extend(child_nodes)
             all_parent_dicts.extend(parent_dicts)
 
@@ -408,7 +424,6 @@ def _split_doc(
     file_path = doc.metadata["file_path"]
     language = doc.metadata["language"]
     source_text = doc.text
-    source_lines = source_text.splitlines()
 
     # Extract symbols once per file for metadata tagging
     symbols = _extract_symbols_for_file(Path(file_path), source_text)
@@ -427,15 +442,17 @@ def _split_doc(
         p_line = _char_to_line(source_text, p_start_char)
         p_chunk_type, p_symbol_name = _match_symbol(p_line, symbols)
 
-        parent_dicts.append({
-            "id": parent_id,
-            "file_path": file_path,
-            "text": p_text,
-            "chunk_index": p_idx,
-            "language": language,
-            "chunk_type": p_chunk_type,
-            "symbol_name": p_symbol_name,
-        })
+        parent_dicts.append(
+            {
+                "id": parent_id,
+                "file_path": file_path,
+                "text": p_text,
+                "chunk_index": p_idx,
+                "language": language,
+                "chunk_type": p_chunk_type,
+                "symbol_name": p_symbol_name,
+            }
+        )
 
         child_lc_docs = child_splitter.create_documents([p_text])
         for c_doc in child_lc_docs:
@@ -469,15 +486,13 @@ def _char_to_line(text: str, char_offset: int) -> int:
     return text[:char_offset].count("\n") + 1
 
 
-def _match_symbol(
-    line: int, symbols: list[ExtractedSymbol]
-) -> tuple[str, Optional[str]]:
+def _match_symbol(line: int, symbols: list[ExtractedSymbol]) -> tuple[str, str | None]:
     """
     Return (chunk_type, symbol_name) for the symbol whose line range contains
     `line`. When multiple symbols overlap, prefer the innermost (shortest range).
     Falls back to ("module", None) if no symbol covers the line.
     """
-    best: Optional[ExtractedSymbol] = None
+    best: ExtractedSymbol | None = None
     for sym in symbols:
         if sym.start_line <= line <= sym.end_line:
             if best is None or (sym.end_line - sym.start_line) < (best.end_line - best.start_line):
@@ -487,9 +502,7 @@ def _match_symbol(
     return best.kind, best.name
 
 
-def _extract_symbols_for_file(
-    path: Path, source: str
-) -> list[ExtractedSymbol]:
+def _extract_symbols_for_file(path: Path, source: str) -> list[ExtractedSymbol]:
     """Extract symbols from a single file's already-loaded source text."""
     from backend.core.symbol_extractor import _EXT_TO_LANG as _SYM_EXT_LANG
     from backend.core.symbol_extractor import _extract_python, _extract_regex

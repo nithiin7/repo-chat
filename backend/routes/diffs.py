@@ -1,13 +1,12 @@
 import asyncio
 import os
 
-from fastapi import APIRouter, HTTPException
-
 from backend.config import get_settings
 from backend.core.diff_fetcher import fetch_diff
 from backend.persistence import get_repo
 from backend.persistence.diff import delete_diff, get_diff, list_diffs, save_diff
 from backend.schemas import DiffIndexRequest, DiffIndexResponse, DiffInfo
+from fastapi import APIRouter, HTTPException
 
 router = APIRouter()
 
@@ -16,7 +15,9 @@ router = APIRouter()
 async def index_diff(repo_id: str, body: DiffIndexRequest):
     repo = await asyncio.to_thread(get_repo, repo_id)
     if not repo:
-        raise HTTPException(status_code=404, detail=f"Repo '{repo_id}' not indexed. Call POST /index first.")
+        raise HTTPException(
+            status_code=404, detail=f"Repo '{repo_id}' not indexed. Call POST /index first."
+        )
 
     settings = get_settings()
     repo_local_path = os.path.join(settings.repos_dir, repo["name"])

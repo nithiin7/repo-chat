@@ -23,12 +23,12 @@ from pathlib import Path
 logger = logging.getLogger(__name__)
 
 _EXT_TO_LANG: dict[str, str] = {
-    ".py":   "python",
-    ".js":   "javascript",
-    ".jsx":  "javascript",
-    ".ts":   "typescript",
-    ".tsx":  "typescript",
-    ".go":   "go",
+    ".py": "python",
+    ".js": "javascript",
+    ".jsx": "javascript",
+    ".ts": "typescript",
+    ".tsx": "typescript",
+    ".go": "go",
     ".java": "java",
 }
 
@@ -38,12 +38,12 @@ _SNIPPET_LINES = 20
 @dataclass
 class ExtractedSymbol:
     name: str
-    kind: str       # "function" | "class" | "method"
+    kind: str  # "function" | "class" | "method"
     file_path: str
-    start_line: int # 1-indexed
+    start_line: int  # 1-indexed
     end_line: int
     signature: str  # first line of definition stripped, ≤200 chars
-    snippet: str    # first _SNIPPET_LINES lines
+    snippet: str  # first _SNIPPET_LINES lines
 
 
 def extract_symbols(file_paths: list[Path]) -> list[ExtractedSymbol]:
@@ -67,6 +67,7 @@ def extract_symbols(file_paths: list[Path]) -> list[ExtractedSymbol]:
 # ---------------------------------------------------------------------------
 # Python — ast module
 # ---------------------------------------------------------------------------
+
 
 def _extract_python(source: str, file_path: str) -> list[ExtractedSymbol]:
     try:
@@ -104,8 +105,8 @@ def _make_py_symbol(
     lines: list[str],
     file_path: str,
 ) -> ExtractedSymbol:
-    start = node.lineno       # 1-indexed
-    end   = node.end_lineno or start  # type: ignore[attr-defined]
+    start = node.lineno  # 1-indexed
+    end = node.end_lineno or start  # type: ignore[attr-defined]
 
     sig_line = lines[start - 1].strip()[:200] if start <= len(lines) else ""
     snippet_lines = lines[start - 1 : min(end, start - 1 + _SNIPPET_LINES)]
@@ -163,7 +164,10 @@ _PATTERNS: dict[str, list[re.Pattern[str]]] = {
         re.compile(r"^type\s+(?P<name>\w+)\s+struct\b", re.M),
     ],
     "java": [
-        re.compile(r"^\s*(?:public|private|protected)?\s*(?:static\s+)?(?:abstract\s+)?class\s+(?P<name>\w+)", re.M),
+        re.compile(
+            r"^\s*(?:public|private|protected)?\s*(?:static\s+)?(?:abstract\s+)?class\s+(?P<name>\w+)",
+            re.M,
+        ),
         re.compile(
             r"^\s*(?:(?:public|private|protected|static|final|abstract|synchronized|native|strictfp)\s+)*"
             r"[\w<>\[\]]+\s+(?P<name>\w+)\s*\(",
@@ -185,12 +189,14 @@ _SKIP_NAMES = frozenset(
 # All-caps identifiers are constants (API_KEY, TOP_K, etc.), not symbols.
 _ALL_CAPS_RE = re.compile(r"^[A-Z][A-Z0-9_]+$")
 
-_JS_INDENT_THRESHOLD = 2   # chars — only count indented lines as methods
+_JS_INDENT_THRESHOLD = 2  # chars — only count indented lines as methods
 
 
 def _extract_regex(source: str, file_path: str, lang: str) -> list[ExtractedSymbol]:
-    lang_key = "typescript" if lang in ("typescript",) else (
-        "javascript" if lang in ("javascript",) else lang
+    lang_key = (
+        "typescript"
+        if lang in ("typescript",)
+        else ("javascript" if lang in ("javascript",) else lang)
     )
     patterns = _PATTERNS.get(lang_key, [])
     lines = source.splitlines()
@@ -210,7 +216,13 @@ def _extract_regex(source: str, file_path: str, lang: str) -> list[ExtractedSymb
                     continue
                 kind = "method"
             elif lang_key in ("javascript", "typescript"):
-                kind = "class" if re.match(r"^\s*(?:export\s+)?(?:(?:abstract|default)\s+)*class\b", m.group(0)) else "function"
+                kind = (
+                    "class"
+                    if re.match(
+                        r"^\s*(?:export\s+)?(?:(?:abstract|default)\s+)*class\b", m.group(0)
+                    )
+                    else "function"
+                )
             elif lang_key == "go":
                 raw = m.group(0)
                 if "struct" in raw:

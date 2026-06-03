@@ -5,11 +5,10 @@ FastAPI application entry point — CodeLens API.
 
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI
-from fastapi.middleware.cors import CORSMiddleware
-
 from backend.persistence import init_db
 from backend.routes import chats, diffs, repos, settings
+from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 
 
 @asynccontextmanager

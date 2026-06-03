@@ -1,11 +1,9 @@
 from pathlib import Path
 
-from sqlalchemy import event
-from sqlalchemy.engine import Engine
-from sqlalchemy import text
-from sqlmodel import SQLModel, create_engine
-
 from backend.config import get_settings
+from sqlalchemy import event, text
+from sqlalchemy.engine import Engine
+from sqlmodel import SQLModel, create_engine
 
 _db_engine: Engine | None = None
 

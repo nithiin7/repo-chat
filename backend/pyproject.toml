@@ -1,0 +1,36 @@
+[tool.scripts]
+lint = "ruff check ."
+format = "ruff format ."
+
+[tool.ruff]
+target-version = "py312"
+line-length = 100
+
+[tool.ruff.lint]
+select = [
+    "E",   # pycodestyle errors
+    "W",   # pycodestyle warnings
+    "F",   # pyflakes
+    "I",   # isort
+    "B",   # flake8-bugbear
+    "UP",  # pyupgrade
+]
+ignore = [
+    "E501", # line too long (handled by formatter)
+    "B008", # do not perform function calls in default arguments (common in FastAPI)
+]
+
+[tool.ruff.lint.isort]
+known-first-party = ["core", "routes", "schemas", "config", "persistence", "tables"]
+
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"
+
+[tool.mypy]
+python_version = "3.12"
+strict = false
+ignore_missing_imports = true
+disallow_untyped_defs = true
+warn_return_any = true
+warn_unused_ignores = true

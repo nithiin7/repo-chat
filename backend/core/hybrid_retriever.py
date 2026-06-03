@@ -13,14 +13,12 @@ Call invalidate_cache(repo_id) after re-indexing to force a rebuild.
 """
 
 import re
-from typing import Optional
 
+from backend.core.retriever import SourceChunk, _expand_to_parents
 from llama_index.core import VectorStoreIndex
 from llama_index.core.embeddings import BaseEmbedding
 from llama_index.vector_stores.chroma import ChromaVectorStore
 from rank_bm25 import BM25Okapi
-
-from backend.core.retriever import SourceChunk, _expand_to_parents
 
 _cache: dict[str, "HybridRetriever"] = {}
 
@@ -107,7 +105,7 @@ class HybridRetriever:
         self._bm25 = BM25Okapi(tokenized) if tokenized else None
 
     def get_relevant_documents(
-        self, query: str, top_k: int = 5, scope_paths: Optional[list[str]] = None
+        self, query: str, top_k: int = 5, scope_paths: list[str] | None = None
     ) -> list[SourceChunk]:
         """Return top_k SourceChunks fused from vector + BM25 via RRF, expanded to parents."""
         # Over-fetch when scoping so filtering doesn't starve results
@@ -122,7 +120,7 @@ class HybridRetriever:
     # ------------------------------------------------------------------
 
     def _vector_retrieve(
-        self, query: str, n: int, scope_paths: Optional[list[str]] = None
+        self, query: str, n: int, scope_paths: list[str] | None = None
     ) -> list[tuple[str, SourceChunk]]:
         nodes = self._index.as_retriever(similarity_top_k=n).retrieve(query)
         results = []
@@ -130,22 +128,24 @@ class HybridRetriever:
             fp = node.node.metadata.get("file_path", "")
             if scope_paths and not _matches_scope(fp, scope_paths):
                 continue
-            results.append((
-                _doc_id(fp, node.get_content()),
-                SourceChunk(
-                    file_path=fp,
-                    chunk=node.get_content(),
-                    score=float(node.score) if node.score is not None else 0.0,
-                    chunk_type=node.node.metadata.get("chunk_type", "module"),
-                    symbol_name=node.node.metadata.get("symbol_name") or None,
-                    chunk_index=int(node.node.metadata.get("chunk_index", 0)),
-                    parent_id=node.node.metadata.get("parent_id", ""),
-                ),
-            ))
+            results.append(
+                (
+                    _doc_id(fp, node.get_content()),
+                    SourceChunk(
+                        file_path=fp,
+                        chunk=node.get_content(),
+                        score=float(node.score) if node.score is not None else 0.0,
+                        chunk_type=node.node.metadata.get("chunk_type", "module"),
+                        symbol_name=node.node.metadata.get("symbol_name") or None,
+                        chunk_index=int(node.node.metadata.get("chunk_index", 0)),
+                        parent_id=node.node.metadata.get("parent_id", ""),
+                    ),
+                )
+            )
         return results
 
     def _bm25_retrieve(
-        self, query: str, n: int, scope_paths: Optional[list[str]] = None
+        self, query: str, n: int, scope_paths: list[str] | None = None
     ) -> list[tuple[str, SourceChunk]]:
         if self._bm25 is None or not self._all_chunks:
             return []
@@ -161,9 +161,7 @@ class HybridRetriever:
         bm25 = BM25Okapi(tokenized)
         scores = bm25.get_scores(_tokenize(query))
 
-        top_indices = sorted(
-            range(len(scores)), key=lambda i: scores[i], reverse=True
-        )[:n]
+        top_indices = sorted(range(len(scores)), key=lambda i: scores[i], reverse=True)[:n]
 
         return [
             (
@@ -187,6 +185,7 @@ class HybridRetriever:
 # Factory + drop-in function
 # ---------------------------------------------------------------------------
 
+
 def make_hybrid_retriever(repo_id: str) -> HybridRetriever:
     """
     Build a HybridRetriever for repo_id by fetching the full child-chunk corpus
@@ -208,9 +207,7 @@ def make_hybrid_retriever(repo_id: str) -> HybridRetriever:
             chunk_index=int((meta or {}).get("chunk_index", 0)),
             parent_id=(meta or {}).get("parent_id", ""),
         )
-        for text, meta in zip(
-            result["documents"] or [], result["metadatas"] or []
-        )
+        for text, meta in zip(result["documents"] or [], result["metadatas"] or [], strict=False)
     ]
 
     return HybridRetriever(
@@ -229,7 +226,7 @@ def hybrid_retrieve(
     repo_id: str,
     question: str,
     top_k: int = 5,
-    scope_paths: Optional[list[str]] = None,
+    scope_paths: list[str] | None = None,
 ) -> list[SourceChunk]:
     """Drop-in replacement for core.retriever.retrieve using hybrid BM25 + vector search."""
     if repo_id not in _cache:

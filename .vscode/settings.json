@@ -10,5 +10,14 @@
     "typescript",
     "typescriptreact"
   ],
-  "prettier.configPath": "frontend/.prettierrc.json"
+  "prettier.configPath": "frontend/.prettierrc.json",
+  "[python]": {
+    "editor.defaultFormatter": "charliermarsh.ruff",
+    "editor.formatOnSave": true,
+    "editor.codeActionsOnSave": {
+      "source.fixAll.ruff": "explicit",
+      "source.organizeImports.ruff": "explicit"
+    }
+  },
+  "ruff.configuration": "backend/pyproject.toml"
 }

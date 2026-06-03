@@ -11,14 +11,13 @@ Public surface:
 import json
 import logging
 import re
+from collections.abc import AsyncGenerator
 from dataclasses import dataclass
-from enum import Enum
-from typing import AsyncGenerator
+from enum import StrEnum
 
 import anthropic
 import httpx
 import openai
-
 from backend.config import get_settings
 
 logger = logging.getLogger(__name__)
@@ -27,7 +26,8 @@ logger = logging.getLogger(__name__)
 # Types
 # ---------------------------------------------------------------------------
 
-class LLMMode(str, Enum):
+
+class LLMMode(StrEnum):
     LOCAL = "local"
     CLOUD = "cloud"
 
@@ -128,7 +128,9 @@ def build_prompt(
 
     if context_chunks:
         fenced = "\n\n---\n\n".join(context_chunks)
-        parts.append(f"Use the following code excerpts to answer the question.\n\n---\n\n{fenced}\n\n---")
+        parts.append(
+            f"Use the following code excerpts to answer the question.\n\n---\n\n{fenced}\n\n---"
+        )
     else:
         parts.append(_NO_CONTEXT_MSG)
 
@@ -141,7 +143,7 @@ def build_prompt(
 # ---------------------------------------------------------------------------
 
 _HISTORY_CHAR_THRESHOLD = 6000  # ~1500 tokens; above this, compress old turns
-_HISTORY_KEEP_RECENT = 12       # always keep the most recent 12 messages verbatim
+_HISTORY_KEEP_RECENT = 12  # always keep the most recent 12 messages verbatim
 
 _COMPRESS_PROMPT = (
     "Summarize the following conversation concisely in 3-5 sentences, "
@@ -149,9 +151,7 @@ _COMPRESS_PROMPT = (
 )
 
 
-async def _compress_history(
-    history: list[dict[str, str]], mode: "LLMMode"
-) -> list[dict[str, str]]:
+async def _compress_history(history: list[dict[str, str]], mode: "LLMMode") -> list[dict[str, str]]:
     """Summarize old turns when history grows too large, keeping recent ones verbatim."""
     if (
         sum(len(m["content"]) for m in history) <= _HISTORY_CHAR_THRESHOLD
@@ -162,9 +162,7 @@ async def _compress_history(
     old, recent = history[:-_HISTORY_KEEP_RECENT], history[-_HISTORY_KEEP_RECENT:]
     dialogue = "\n".join(f"{m['role'].upper()}: {m['content']}" for m in old)
     try:
-        summary = await _complete(
-            _COMPRESS_PROMPT.format(dialogue=dialogue[:4000]), mode
-        )
+        summary = await _complete(_COMPRESS_PROMPT.format(dialogue=dialogue[:4000]), mode)
     except Exception:
         return recent  # fallback: drop old turns silently
 
@@ -182,7 +180,9 @@ async def _compress_history(
 _OLLAMA_TIMEOUT = httpx.Timeout(connect=10.0, read=300.0, write=30.0, pool=5.0)
 
 
-async def stream_local(messages: list[dict[str, str]], system: str = _SYSTEM_PROMPT) -> AsyncGenerator[str, None]:
+async def stream_local(
+    messages: list[dict[str, str]], system: str = _SYSTEM_PROMPT
+) -> AsyncGenerator[str, None]:
     settings = get_settings()
     url = f"{settings.ollama_base_url.rstrip('/')}/api/chat"
     payload = {
@@ -198,9 +198,7 @@ async def stream_local(messages: list[dict[str, str]], system: str = _SYSTEM_PRO
         ):
             if response.status_code != 200:
                 body = await response.aread()
-                raise LLMError(
-                    f"Ollama returned HTTP {response.status_code}: {body.decode()}"
-                )
+                raise LLMError(f"Ollama returned HTTP {response.status_code}: {body.decode()}")
             async for raw_line in response.aiter_lines():
                 if not raw_line:
                     continue
@@ -223,22 +221,21 @@ async def stream_local(messages: list[dict[str, str]], system: str = _SYSTEM_PRO
             "Make sure Ollama is running (`ollama serve`)."
         ) from exc
     except httpx.ReadTimeout as exc:
-        raise LLMError(
-            "Ollama stopped responding during generation (read timeout)."
-        ) from exc
+        raise LLMError("Ollama stopped responding during generation (read timeout).") from exc
 
 
 # ---------------------------------------------------------------------------
 # Cloud — Anthropic Messages API
 # ---------------------------------------------------------------------------
 
-async def stream_anthropic(messages: list[dict[str, str]], system: str = _SYSTEM_PROMPT) -> AsyncGenerator[str | TokenUsage, None]:
+
+async def stream_anthropic(
+    messages: list[dict[str, str]], system: str = _SYSTEM_PROMPT
+) -> AsyncGenerator[str | TokenUsage, None]:
     settings = get_settings()
 
     if not settings.anthropic_api_key:
-        raise LLMError(
-            "CLOUD mode requires ANTHROPIC_API_KEY to be configured in Settings."
-        )
+        raise LLMError("CLOUD mode requires ANTHROPIC_API_KEY to be configured in Settings.")
 
     client = anthropic.AsyncAnthropic(api_key=settings.anthropic_api_key)
 
@@ -257,37 +254,34 @@ async def stream_anthropic(messages: list[dict[str, str]], system: str = _SYSTEM
             yield TokenUsage(
                 input_tokens=usage.input_tokens,
                 output_tokens=usage.output_tokens,
-                cost_usd=_compute_cost(settings.anthropic_model, usage.input_tokens, usage.output_tokens),
+                cost_usd=_compute_cost(
+                    settings.anthropic_model, usage.input_tokens, usage.output_tokens
+                ),
                 model=settings.anthropic_model,
             )
 
     except anthropic.AuthenticationError as exc:
-        raise LLMError(
-            "Anthropic authentication failed. Check your API key in Settings."
-        ) from exc
+        raise LLMError("Anthropic authentication failed. Check your API key in Settings.") from exc
     except anthropic.RateLimitError as exc:
         raise LLMError("Anthropic rate limit reached. Please retry in a moment.") from exc
     except anthropic.APIConnectionError as exc:
-        raise LLMError(
-            "Cannot reach the Anthropic API. Check your network connection."
-        ) from exc
+        raise LLMError("Cannot reach the Anthropic API. Check your network connection.") from exc
     except anthropic.APIStatusError as exc:
-        raise LLMError(
-            f"Anthropic API error {exc.status_code}: {exc.message}"
-        ) from exc
+        raise LLMError(f"Anthropic API error {exc.status_code}: {exc.message}") from exc
 
 
 # ---------------------------------------------------------------------------
 # Cloud — OpenAI (or compatible)
 # ---------------------------------------------------------------------------
 
-async def stream_openai(messages: list[dict[str, str]], system: str = _SYSTEM_PROMPT) -> AsyncGenerator[str | TokenUsage, None]:
+
+async def stream_openai(
+    messages: list[dict[str, str]], system: str = _SYSTEM_PROMPT
+) -> AsyncGenerator[str | TokenUsage, None]:
     settings = get_settings()
 
     if not settings.openai_api_key:
-        raise LLMError(
-            "CLOUD mode requires OPENAI_API_KEY to be configured in Settings."
-        )
+        raise LLMError("CLOUD mode requires OPENAI_API_KEY to be configured in Settings.")
 
     client = openai.AsyncOpenAI(
         api_key=settings.openai_api_key,
@@ -321,32 +315,27 @@ async def stream_openai(messages: list[dict[str, str]], system: str = _SYSTEM_PR
             )
 
     except openai.AuthenticationError as exc:
-        raise LLMError(
-            "OpenAI authentication failed. Check your API key in Settings."
-        ) from exc
+        raise LLMError("OpenAI authentication failed. Check your API key in Settings.") from exc
     except openai.RateLimitError as exc:
         raise LLMError("OpenAI rate limit reached. Please retry in a moment.") from exc
     except openai.APIConnectionError as exc:
-        raise LLMError(
-            "Cannot reach the OpenAI API. Check your network connection."
-        ) from exc
+        raise LLMError("Cannot reach the OpenAI API. Check your network connection.") from exc
     except openai.APIStatusError as exc:
-        raise LLMError(
-            f"OpenAI API error {exc.status_code}: {exc.message}"
-        ) from exc
+        raise LLMError(f"OpenAI API error {exc.status_code}: {exc.message}") from exc
 
 
 # ---------------------------------------------------------------------------
 # Cloud — Groq (OpenAI-compatible)
 # ---------------------------------------------------------------------------
 
-async def stream_groq(messages: list[dict[str, str]], system: str = _SYSTEM_PROMPT) -> AsyncGenerator[str | TokenUsage, None]:
+
+async def stream_groq(
+    messages: list[dict[str, str]], system: str = _SYSTEM_PROMPT
+) -> AsyncGenerator[str | TokenUsage, None]:
     settings = get_settings()
 
     if not settings.groq_api_key:
-        raise LLMError(
-            "CLOUD mode requires GROQ_API_KEY to be configured in Settings."
-        )
+        raise LLMError("CLOUD mode requires GROQ_API_KEY to be configured in Settings.")
 
     client = openai.AsyncOpenAI(
         api_key=settings.groq_api_key,
@@ -380,32 +369,27 @@ async def stream_groq(messages: list[dict[str, str]], system: str = _SYSTEM_PROM
             )
 
     except openai.AuthenticationError as exc:
-        raise LLMError(
-            "Groq authentication failed. Check your API key in Settings."
-        ) from exc
+        raise LLMError("Groq authentication failed. Check your API key in Settings.") from exc
     except openai.RateLimitError as exc:
         raise LLMError("Groq rate limit reached. Please retry in a moment.") from exc
     except openai.APIConnectionError as exc:
-        raise LLMError(
-            "Cannot reach the Groq API. Check your network connection."
-        ) from exc
+        raise LLMError("Cannot reach the Groq API. Check your network connection.") from exc
     except openai.APIStatusError as exc:
-        raise LLMError(
-            f"Groq API error {exc.status_code}: {exc.message}"
-        ) from exc
+        raise LLMError(f"Groq API error {exc.status_code}: {exc.message}") from exc
 
 
 # ---------------------------------------------------------------------------
 # Cloud — Google Gemini (OpenAI-compatible endpoint)
 # ---------------------------------------------------------------------------
 
-async def stream_gemini(messages: list[dict[str, str]], system: str = _SYSTEM_PROMPT) -> AsyncGenerator[str | TokenUsage, None]:
+
+async def stream_gemini(
+    messages: list[dict[str, str]], system: str = _SYSTEM_PROMPT
+) -> AsyncGenerator[str | TokenUsage, None]:
     settings = get_settings()
 
     if not settings.gemini_api_key:
-        raise LLMError(
-            "CLOUD mode requires GEMINI_API_KEY to be configured in Settings."
-        )
+        raise LLMError("CLOUD mode requires GEMINI_API_KEY to be configured in Settings.")
 
     client = openai.AsyncOpenAI(
         api_key=settings.gemini_api_key,
@@ -439,19 +423,13 @@ async def stream_gemini(messages: list[dict[str, str]], system: str = _SYSTEM_PR
             )
 
     except openai.AuthenticationError as exc:
-        raise LLMError(
-            "Gemini authentication failed. Check your API key in Settings."
-        ) from exc
+        raise LLMError("Gemini authentication failed. Check your API key in Settings.") from exc
     except openai.RateLimitError as exc:
         raise LLMError("Gemini rate limit reached. Please retry in a moment.") from exc
     except openai.APIConnectionError as exc:
-        raise LLMError(
-            "Cannot reach the Gemini API. Check your network connection."
-        ) from exc
+        raise LLMError("Cannot reach the Gemini API. Check your network connection.") from exc
     except openai.APIStatusError as exc:
-        raise LLMError(
-            f"Gemini API error {exc.status_code}: {exc.message}"
-        ) from exc
+        raise LLMError(f"Gemini API error {exc.status_code}: {exc.message}") from exc
 
 
 # ---------------------------------------------------------------------------
@@ -473,25 +451,50 @@ async def _complete(prompt: str, mode: LLMMode) -> str:
     if mode is LLMMode.LOCAL:
         url = f"{settings.ollama_base_url.rstrip('/')}/api/generate"
         async with httpx.AsyncClient(timeout=httpx.Timeout(60.0)) as client:
-            resp = await client.post(url, json={"model": settings.ollama_model, "prompt": prompt, "stream": False})
+            resp = await client.post(
+                url, json={"model": settings.ollama_model, "prompt": prompt, "stream": False}
+            )
             return resp.json().get("response", "")
     elif mode is LLMMode.CLOUD:
         provider = settings.cloud_provider
         if provider == "openai":
-            client = openai.AsyncOpenAI(api_key=settings.openai_api_key, base_url=settings.openai_base_url)
-            resp = await client.chat.completions.create(model=settings.openai_model, max_tokens=200, messages=[{"role": "user", "content": prompt}])
+            client = openai.AsyncOpenAI(
+                api_key=settings.openai_api_key, base_url=settings.openai_base_url
+            )
+            resp = await client.chat.completions.create(
+                model=settings.openai_model,
+                max_tokens=200,
+                messages=[{"role": "user", "content": prompt}],
+            )
             return resp.choices[0].message.content or "" if resp.choices else ""
         elif provider == "groq":
-            client = openai.AsyncOpenAI(api_key=settings.groq_api_key, base_url="https://api.groq.com/openai/v1")
-            resp = await client.chat.completions.create(model=settings.groq_model, max_tokens=200, messages=[{"role": "user", "content": prompt}])
+            client = openai.AsyncOpenAI(
+                api_key=settings.groq_api_key, base_url="https://api.groq.com/openai/v1"
+            )
+            resp = await client.chat.completions.create(
+                model=settings.groq_model,
+                max_tokens=200,
+                messages=[{"role": "user", "content": prompt}],
+            )
             return resp.choices[0].message.content or "" if resp.choices else ""
         elif provider == "gemini":
-            client = openai.AsyncOpenAI(api_key=settings.gemini_api_key, base_url="https://generativelanguage.googleapis.com/v1beta/openai/")
-            resp = await client.chat.completions.create(model=settings.gemini_model, max_tokens=200, messages=[{"role": "user", "content": prompt}])
+            client = openai.AsyncOpenAI(
+                api_key=settings.gemini_api_key,
+                base_url="https://generativelanguage.googleapis.com/v1beta/openai/",
+            )
+            resp = await client.chat.completions.create(
+                model=settings.gemini_model,
+                max_tokens=200,
+                messages=[{"role": "user", "content": prompt}],
+            )
             return resp.choices[0].message.content or "" if resp.choices else ""
         else:
             ac = anthropic.AsyncAnthropic(api_key=settings.anthropic_api_key)
-            msg = await ac.messages.create(model=settings.anthropic_model, max_tokens=200, messages=[{"role": "user", "content": prompt}])
+            msg = await ac.messages.create(
+                model=settings.anthropic_model,
+                max_tokens=200,
+                messages=[{"role": "user", "content": prompt}],
+            )
             return msg.content[0].text if msg.content else ""
     return ""
 
@@ -503,7 +506,9 @@ async def generate_suggestions(question: str, answer: str, mode: LLMMode) -> lis
         raw = await _complete(prompt, mode)
     except Exception:
         return []
-    lines = [re.sub(r'^[\d\.\-•*]+\s*', '', l).strip() for l in raw.splitlines() if l.strip()]
+    lines = [
+        re.sub(r"^[\d\.\-•*]+\s*", "", line).strip() for line in raw.splitlines() if line.strip()
+    ]
     return [q for q in lines if q][:3]
 
 
@@ -517,10 +522,16 @@ async def stream_answer(
 ) -> AsyncGenerator[str | TokenUsage, None]:
     system = system_prompt or _SYSTEM_PROMPT
     compressed = await _compress_history(history or [], mode)
-    messages = [*compressed, {"role": "user", "content": build_prompt(question, chunks, diff_context)}]
+    messages = [
+        *compressed,
+        {"role": "user", "content": build_prompt(question, chunks, diff_context)},
+    ]
     logger.debug(
         "stream_answer mode=%s question=%r chunks=%d history=%d",
-        mode, question[:80], len(chunks), len(history or []),
+        mode,
+        question[:80],
+        len(chunks),
+        len(history or []),
     )
 
     if mode is LLMMode.LOCAL:

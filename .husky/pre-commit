@@ -1,1 +1,9 @@
 cd frontend && npx lint-staged
+cd ..
+
+STAGED_PY=$(git diff --cached --name-only --diff-filter=ACM | grep '^backend/.*\.py$')
+if [ -n "$STAGED_PY" ]; then
+  backend/.venv/bin/ruff check --fix $STAGED_PY
+  backend/.venv/bin/ruff format $STAGED_PY
+  git add $STAGED_PY
+fi

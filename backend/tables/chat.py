@@ -1,11 +1,11 @@
 import uuid
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 from sqlmodel import Field, SQLModel
 
 
 def _now() -> str:
-    return datetime.now(timezone.utc).isoformat()
+    return datetime.now(UTC).isoformat()
 
 
 class Chat(SQLModel, table=True):

@@ -1,13 +1,12 @@
-from datetime import datetime, timezone
-
-from sqlmodel import Session, select
+from datetime import UTC, datetime
 
 from backend.persistence.engine import _get_engine
 from backend.tables import Chat
+from sqlmodel import Session, select
 
 
 def _now() -> str:
-    return datetime.now(timezone.utc).isoformat()
+    return datetime.now(UTC).isoformat()
 
 
 def create_chat(repo_id: str, title: str = "New Chat") -> dict:
@@ -91,13 +90,15 @@ def fork_chat(source_chat_id: str, before_message_id: str | None) -> dict | None
                 to_copy = []
 
         for m in to_copy:
-            session.add(Message(
-                chat_id=new_chat.id,
-                role=m.role,
-                content=m.content,
-                sources=m.sources,
-                created_at=m.created_at,
-            ))
+            session.add(
+                Message(
+                    chat_id=new_chat.id,
+                    role=m.role,
+                    content=m.content,
+                    sources=m.sources,
+                    created_at=m.created_at,
+                )
+            )
 
         session.commit()
         session.refresh(new_chat)

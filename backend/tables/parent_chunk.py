@@ -1,5 +1,3 @@
-from typing import Optional
-
 from sqlmodel import Field, Index, SQLModel
 
 
@@ -13,5 +11,5 @@ class ParentChunk(SQLModel, table=True):
     text: str
     chunk_index: int
     language: str
-    chunk_type: str = "module"          # function | class | method | module
-    symbol_name: Optional[str] = None
+    chunk_type: str = "module"  # function | class | method | module
+    symbol_name: str | None = None

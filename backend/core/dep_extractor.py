@@ -13,10 +13,10 @@ import re
 from pathlib import Path
 
 _EXT_TO_LANG: dict[str, str] = {
-    ".py":  "python",
-    ".js":  "javascript",
+    ".py": "python",
+    ".js": "javascript",
     ".jsx": "javascript",
-    ".ts":  "typescript",
+    ".ts": "typescript",
     ".tsx": "typescript",
 }
 
@@ -28,10 +28,23 @@ _JS_IMPORT_RE = re.compile(
 
 _JS_EXTS = (".ts", ".tsx", ".js", ".jsx")
 
-_SKIP_DIRS = frozenset({
-    ".git", "node_modules", "__pycache__", ".venv", "venv", "env",
-    "dist", "build", ".next", "out", "vendor", ".idea", ".vscode",
-})
+_SKIP_DIRS = frozenset(
+    {
+        ".git",
+        "node_modules",
+        "__pycache__",
+        ".venv",
+        "venv",
+        "env",
+        "dist",
+        "build",
+        ".next",
+        "out",
+        "vendor",
+        ".idea",
+        ".vscode",
+    }
+)
 
 
 def walk_source_files(repo_root: Path) -> list[Path]:
@@ -80,6 +93,7 @@ def extract_dep_edges(file_paths: list[Path], repo_root: Path) -> list[tuple[str
 # ---------------------------------------------------------------------------
 # Python import resolution
 # ---------------------------------------------------------------------------
+
 
 def _python_imports(
     source: str, source_abs: Path, repo_root: Path, known_abs: set[Path]
@@ -144,9 +158,8 @@ def _py_resolve(module: str, base: Path, known_abs: set[Path]) -> Path | None:
 # JS / TS import resolution
 # ---------------------------------------------------------------------------
 
-def _js_imports(
-    source: str, source_abs: Path, known_abs: set[Path]
-) -> list[Path]:
+
+def _js_imports(source: str, source_abs: Path, known_abs: set[Path]) -> list[Path]:
     results: list[Path] = []
     source_dir = source_abs.parent
 

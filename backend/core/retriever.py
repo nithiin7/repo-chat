@@ -7,20 +7,19 @@ from SQLite, so the returned SourceChunk.chunk contains the wider context
 (full function/class body) rather than the narrow child snippet.
 """
 
-from typing import Optional, TypedDict
-
-from llama_index.core import VectorStoreIndex
-from llama_index.vector_stores.chroma import ChromaVectorStore
+from typing import TypedDict
 
 from backend.core.indexer import get_chroma_collection, get_embed_model
+from llama_index.core import VectorStoreIndex
+from llama_index.vector_stores.chroma import ChromaVectorStore
 
 
 class SourceChunk(TypedDict):
     file_path: str
-    chunk: str          # parent chunk text (wide context for LLM)
+    chunk: str  # parent chunk text (wide context for LLM)
     score: float
-    chunk_type: str     # function | class | method | module
-    symbol_name: Optional[str]
+    chunk_type: str  # function | class | method | module
+    symbol_name: str | None
     chunk_index: int
     parent_id: str
 
@@ -54,9 +53,7 @@ def retrieve(repo_id: str, question: str, top_k: int = 5) -> list[SourceChunk]:
     return _expand_to_parents(repo_id, child_chunks)
 
 
-def _expand_to_parents(
-    repo_id: str, child_chunks: list[SourceChunk]
-) -> list[SourceChunk]:
+def _expand_to_parents(repo_id: str, child_chunks: list[SourceChunk]) -> list[SourceChunk]:
     """
     Replace each child chunk's text with its parent chunk text.
     Deduplicates by parent_id so the LLM never sees the same context twice.

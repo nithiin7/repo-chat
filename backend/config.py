@@ -5,6 +5,7 @@ with a user-editable overlay stored in settings.json that takes precedence.
 
 import json
 from pathlib import Path
+
 from pydantic_settings import BaseSettings
 
 

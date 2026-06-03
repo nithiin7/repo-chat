@@ -1,11 +1,10 @@
 import json
 import uuid
-from datetime import datetime, timezone
-
-from sqlmodel import Session, select
+from datetime import UTC, datetime
 
 from backend.persistence.engine import _get_engine
 from backend.tables.diff import Diff
+from sqlmodel import Session, select
 
 
 def save_diff(
@@ -28,7 +27,7 @@ def save_diff(
         additions=additions,
         deletions=deletions,
         diff_data=json.dumps(diff_data),
-        indexed_at=datetime.now(timezone.utc).isoformat(),
+        indexed_at=datetime.now(UTC).isoformat(),
     )
     with Session(_get_engine()) as session:
         session.add(diff)

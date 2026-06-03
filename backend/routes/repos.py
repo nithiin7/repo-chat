@@ -2,16 +2,20 @@ import asyncio
 import hashlib
 import json
 import shutil
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 
-from fastapi import APIRouter, HTTPException, Query
-from fastapi.responses import StreamingResponse
-
 from backend.config import get_settings
-from backend.core.fetcher import FetchResult, RepoFetchError, collect_files, fetch_repo, get_remote_head, pull_repo
-from backend.core.indexer import build_index, delete_index, sync_index
+from backend.core.fetcher import (
+    FetchResult,
+    RepoFetchError,
+    collect_files,
+    fetch_repo,
+    get_remote_head,
+    pull_repo,
+)
 from backend.core.hybrid_retriever import hybrid_retrieve
+from backend.core.indexer import build_index, delete_index, sync_index
 from backend.persistence import (
     create_chat,
     delete_chats_for_repo,
@@ -43,6 +47,8 @@ from backend.schemas import (
     TestCoverageEstimate,
     TodoItem,
 )
+from fastapi import APIRouter, HTTPException, Query
+from fastapi.responses import StreamingResponse
 
 router = APIRouter()
 
@@ -75,19 +81,19 @@ async def index_repo(body: IndexRequest):
             fetch_repo, url, github_token=body.github_token, branch=body.branch
         )
     except RepoFetchError as exc:
-        raise HTTPException(status_code=422, detail=str(exc))
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
 
     try:
         await asyncio.to_thread(build_index, result.file_paths, repo_id)
     except ValueError as exc:
-        raise HTTPException(status_code=422, detail=str(exc))
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
 
     await asyncio.to_thread(
         upsert_repo,
         repo_id,
         result.repo_name,
         url,
-        datetime.now(timezone.utc).isoformat(),
+        datetime.now(UTC).isoformat(),
         len(result.file_paths),
         result.head_commit or None,
         body.branch,
@@ -119,7 +125,14 @@ async def index_repo_stream(body: IndexRequest):
             try:
                 existing = await asyncio.to_thread(get_repo, repo_id)
                 if existing and not body.force:
-                    await queue.put({"type": "done", "repo_id": repo_id, "file_count": existing["file_count"], "status": "already_indexed"})
+                    await queue.put(
+                        {
+                            "type": "done",
+                            "repo_id": repo_id,
+                            "file_count": existing["file_count"],
+                            "status": "already_indexed",
+                        }
+                    )
                     return
 
                 if existing and body.force:
@@ -151,18 +164,20 @@ async def index_repo_stream(body: IndexRequest):
                     repo_id,
                     result.repo_name,
                     url,
-                    datetime.now(timezone.utc).isoformat(),
+                    datetime.now(UTC).isoformat(),
                     len(result.file_paths),
                     result.head_commit or None,
                     body.branch,
                 )
 
-                await queue.put({
-                    "type": "done",
-                    "repo_id": repo_id,
-                    "file_count": len(result.file_paths),
-                    "status": "reindexed" if body.force else "indexed",
-                })
+                await queue.put(
+                    {
+                        "type": "done",
+                        "repo_id": repo_id,
+                        "file_count": len(result.file_paths),
+                        "status": "reindexed" if body.force else "indexed",
+                    }
+                )
             except Exception as exc:
                 await queue.put({"type": "error", "message": str(exc)})
 
@@ -260,13 +275,15 @@ async def sync_repo_stream(repo_id: str):
                     return
 
                 if sync_result.old_commit == sync_result.new_commit:
-                    await queue.put({
-                        "type": "done",
-                        "repo_id": repo_id,
-                        "changed_count": 0,
-                        "deleted_count": 0,
-                        "status": "up_to_date",
-                    })
+                    await queue.put(
+                        {
+                            "type": "done",
+                            "repo_id": repo_id,
+                            "changed_count": 0,
+                            "deleted_count": 0,
+                            "status": "up_to_date",
+                        }
+                    )
                     return
 
                 total = len(sync_result.changed_files) + len(sync_result.deleted_files)
@@ -290,19 +307,21 @@ async def sync_repo_stream(repo_id: str):
                     repo_id,
                     existing["name"],
                     existing["url"],
-                    datetime.now(timezone.utc).isoformat(),
+                    datetime.now(UTC).isoformat(),
                     len(all_files),
                     sync_result.new_commit,
                     existing.get("branch"),
                 )
 
-                await queue.put({
-                    "type": "done",
-                    "repo_id": repo_id,
-                    "changed_count": files_reindexed,
-                    "deleted_count": len(sync_result.deleted_files),
-                    "status": "synced",
-                })
+                await queue.put(
+                    {
+                        "type": "done",
+                        "repo_id": repo_id,
+                        "changed_count": files_reindexed,
+                        "deleted_count": len(sync_result.deleted_files),
+                        "status": "synced",
+                    }
+                )
             except Exception as exc:
                 await queue.put({"type": "error", "message": str(exc)})
 

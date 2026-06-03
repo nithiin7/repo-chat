@@ -1,8 +1,7 @@
 import httpx
-from fastapi import APIRouter, HTTPException
-
 from backend.config import get_settings, save_settings_overlay
 from backend.schemas import EmbeddingPullRequest, SettingsUpdate, SettingsView
+from fastapi import APIRouter, HTTPException
 
 router = APIRouter()
 
@@ -11,7 +10,11 @@ _CURATED_EMBEDDING_MODELS = [
     {"id": "BAAI/bge-base-en-v1.5", "name": "BGE Base", "size": "~440 MB"},
     {"id": "BAAI/bge-large-en-v1.5", "name": "BGE Large", "size": "~1.3 GB"},
     {"id": "sentence-transformers/all-MiniLM-L6-v2", "name": "all-MiniLM-L6-v2", "size": "~90 MB"},
-    {"id": "sentence-transformers/all-mpnet-base-v2", "name": "all-mpnet-base-v2", "size": "~420 MB"},
+    {
+        "id": "sentence-transformers/all-mpnet-base-v2",
+        "name": "all-mpnet-base-v2",
+        "size": "~420 MB",
+    },
 ]
 
 
@@ -71,7 +74,10 @@ async def update_settings(body: SettingsUpdate):
         updates["ollama_model"] = body.ollama_model
     if body.cloud_provider is not None:
         if body.cloud_provider not in ("anthropic", "openai", "groq", "gemini"):
-            raise HTTPException(status_code=422, detail="cloud_provider must be 'anthropic', 'openai', 'groq', or 'gemini'")
+            raise HTTPException(
+                status_code=422,
+                detail="cloud_provider must be 'anthropic', 'openai', 'groq', or 'gemini'",
+            )
         updates["cloud_provider"] = body.cloud_provider
     if body.anthropic_model is not None:
         updates["anthropic_model"] = body.anthropic_model
@@ -119,4 +125,6 @@ async def pull_embedding_model(body: EmbeddingPullRequest):
         get_embed_model()
         return {"status": "ready", "model": body.model}
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Failed to load model '{body.model}': {e}")
+        raise HTTPException(
+            status_code=500, detail=f"Failed to load model '{body.model}': {e}"
+        ) from e

@@ -25,6 +25,7 @@ class Reranker:
     def _load(self) -> _CrossEncoder:
         if self._encoder is None:
             from sentence_transformers import CrossEncoder
+
             self._encoder = CrossEncoder(self._model_name)
         return self._encoder
 
@@ -34,7 +35,10 @@ class Reranker:
         encoder = self._load()
         pairs = [(query, sc["chunk"]) for sc in chunks]
         scores: list[float] = encoder.predict(pairs).tolist()
-        return [sc for _, sc in sorted(zip(scores, chunks), key=lambda x: x[0], reverse=True)]
+        return [
+            sc
+            for _, sc in sorted(zip(scores, chunks, strict=True), key=lambda x: x[0], reverse=True)
+        ]
 
 
 _instance: Reranker | None = None

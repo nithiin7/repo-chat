@@ -10,9 +10,8 @@ from pathlib import Path
 from urllib.parse import urlparse
 
 import git
-from git import GitCommandError
-
 from backend.config import get_settings
+from git import GitCommandError
 
 # ----- constants ------------------------------------------------------------
 
@@ -42,6 +41,7 @@ _SKIP_DIRS: frozenset[str] = frozenset(
 
 # ----- result type ----------------------------------------------------------
 
+
 @dataclass
 class FetchResult:
     local_path: Path
@@ -64,11 +64,13 @@ class SyncResult:
 
 # ----- errors ---------------------------------------------------------------
 
+
 class RepoFetchError(Exception):
     """Raised when a repo cannot be fetched (bad URL, private, network, etc.)."""
 
 
 # ----- URL parsing ----------------------------------------------------------
+
 
 def parse_repo_url(repo_url: str) -> dict[str, str]:
     """
@@ -89,8 +91,7 @@ def parse_repo_url(repo_url: str) -> dict[str, str]:
         provider = "bitbucket"
     else:
         raise RepoFetchError(
-            f"Unsupported host '{host}'. "
-            "Only github.com and bitbucket.org are supported."
+            f"Unsupported host '{host}'. Only github.com and bitbucket.org are supported."
         )
 
     parts = [p for p in parsed.path.split("/") if p]
@@ -107,6 +108,7 @@ def parse_repo_url(repo_url: str) -> dict[str, str]:
 
 
 # ----- file collection ------------------------------------------------------
+
 
 def collect_files(root: Path) -> list[Path]:
     """
@@ -129,6 +131,7 @@ def collect_files(root: Path) -> list[Path]:
 
 
 # ----- clone helpers --------------------------------------------------------
+
 
 def _clone(
     clone_url: str,
@@ -180,7 +183,8 @@ def _clone(
 
         if any(kw in stderr for kw in ("authentication", "403", "401", "access denied")):
             cred_hint = (
-                "GITHUB_TOKEN" if provider == "github"
+                "GITHUB_TOKEN"
+                if provider == "github"
                 else "BITBUCKET_USERNAME / BITBUCKET_APP_PASSWORD"
             )
             raise RepoFetchError(
@@ -200,6 +204,7 @@ def _clone(
 
 
 # ----- provider-specific fetchers -------------------------------------------
+
 
 def fetch_github_repo(
     owner: str,
@@ -246,10 +251,7 @@ def fetch_bitbucket_repo(
     display_url = f"https://bitbucket.org/{owner}/{repo_name}"
 
     if username and app_password:
-        clone_url = (
-            f"https://{username}:{app_password}"
-            f"@bitbucket.org/{owner}/{repo_name}.git"
-        )
+        clone_url = f"https://{username}:{app_password}@bitbucket.org/{owner}/{repo_name}.git"
     else:
         clone_url = f"https://bitbucket.org/{owner}/{repo_name}.git"
 
@@ -265,6 +267,7 @@ def fetch_bitbucket_repo(
 
 
 # ----- public entry point ---------------------------------------------------
+
 
 def fetch_repo(
     repo_url: str,
@@ -297,6 +300,7 @@ def fetch_repo(
 
 
 # ----- incremental sync (pull) ----------------------------------------------
+
 
 def pull_repo(
     local_path: Path,
@@ -375,6 +379,7 @@ def pull_repo(
 
 # ----- remote HEAD commit check ---------------------------------------------
 
+
 def get_remote_head(repo_url: str, branch: str | None = None) -> str | None:
     """
     Return the current HEAD commit SHA of the remote repo (or a specific branch)
@@ -400,10 +405,7 @@ def get_remote_head(repo_url: str, branch: str | None = None) -> str | None:
         username = settings.bitbucket_username
         app_password = settings.bitbucket_app_password
         if username and app_password:
-            clone_url = (
-                f"https://{username}:{app_password}"
-                f"@bitbucket.org/{owner}/{repo_name}.git"
-            )
+            clone_url = f"https://{username}:{app_password}@bitbucket.org/{owner}/{repo_name}.git"
         else:
             clone_url = f"https://bitbucket.org/{owner}/{repo_name}.git"
 

@@ -1,7 +1,6 @@
-from sqlmodel import Session, select, or_
-
 from backend.persistence.engine import _get_engine
 from backend.tables import Symbol
+from sqlmodel import Session, or_, select
 
 
 def insert_symbols(repo_id: str, symbols: list[dict]) -> int:
@@ -52,10 +51,7 @@ def list_symbols(
 ) -> list[dict]:
     """Return symbols for a repo without a text filter (for browsing)."""
     with Session(_get_engine()) as session:
-        stmt = (
-            select(Symbol)
-            .where(Symbol.repo_id == repo_id)
-        )
+        stmt = select(Symbol).where(Symbol.repo_id == repo_id)
         if kind:
             stmt = stmt.where(Symbol.kind == kind)
         stmt = stmt.order_by(Symbol.name).limit(limit)
@@ -77,9 +73,7 @@ def delete_symbols_for_files(repo_id: str, file_paths: list[str]) -> None:
         return
     with Session(_get_engine()) as session:
         rows = session.exec(
-            select(Symbol)
-            .where(Symbol.repo_id == repo_id)
-            .where(Symbol.file_path.in_(file_paths))
+            select(Symbol).where(Symbol.repo_id == repo_id).where(Symbol.file_path.in_(file_paths))
         ).all()
         for row in rows:
             session.delete(row)

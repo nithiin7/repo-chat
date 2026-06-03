@@ -1,11 +1,10 @@
 import json
-from datetime import datetime, timezone
-
-from sqlmodel import Session, select
+from datetime import UTC, datetime
 
 from backend.persistence.chat import _touch_chat
 from backend.persistence.engine import _get_engine
 from backend.tables import Chat, Message
+from sqlmodel import Session, select
 
 
 def save_message(
@@ -31,7 +30,7 @@ def set_chat_title_if_default(chat_id: str, title: str) -> None:
         chat = session.get(Chat, chat_id)
         if chat and chat.title == "New Chat":
             chat.title = truncated
-            chat.updated_at = datetime.now(timezone.utc).isoformat()
+            chat.updated_at = datetime.now(UTC).isoformat()
             session.add(chat)
             session.commit()
 

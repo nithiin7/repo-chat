@@ -1,13 +1,12 @@
 import uuid
-from datetime import datetime, timezone
-from typing import Optional
+from datetime import UTC, datetime
 
 from sqlalchemy import Column, ForeignKey, String
 from sqlmodel import Field, SQLModel
 
 
 def _now() -> str:
-    return datetime.now(timezone.utc).isoformat()
+    return datetime.now(UTC).isoformat()
 
 
 class Message(SQLModel, table=True):
@@ -15,9 +14,11 @@ class Message(SQLModel, table=True):
 
     id: str = Field(default_factory=lambda: uuid.uuid4().hex[:16], primary_key=True)
     chat_id: str = Field(
-        sa_column=Column(String, ForeignKey("chats.id", ondelete="CASCADE"), index=True, nullable=False)
+        sa_column=Column(
+            String, ForeignKey("chats.id", ondelete="CASCADE"), index=True, nullable=False
+        )
     )
     role: str
     content: str
-    sources: Optional[str] = None
+    sources: str | None = None
     created_at: str = Field(default_factory=_now)

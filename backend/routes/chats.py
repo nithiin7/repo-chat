@@ -1,30 +1,46 @@
 import asyncio
 import json
 import logging
-from typing import AsyncGenerator
-
-from fastapi import APIRouter, HTTPException
-from fastapi.responses import StreamingResponse
+from collections.abc import AsyncGenerator
 
 from backend.config import get_settings
 from backend.core.diff_fetcher import format_diff_for_prompt
-from backend.core.llm import LLMError, TokenUsage, _MULTI_REPO_SYSTEM_PROMPT, generate_suggestions, stream_answer
 from backend.core.hybrid_retriever import hybrid_retrieve
+from backend.core.llm import (
+    _MULTI_REPO_SYSTEM_PROMPT,
+    LLMError,
+    TokenUsage,
+    generate_suggestions,
+    stream_answer,
+)
 from backend.core.reranker import get_reranker
 from backend.core.retriever import SourceChunk
 from backend.persistence import (
-    delete_chat,
+    delete_chat as db_delete_chat,
+)
+from backend.persistence import (
     fork_chat,
     get_chat,
     get_diff,
     get_repo,
     list_messages,
     pin_chat,
-    rename_chat,
     save_message,
     set_chat_title_if_default,
 )
-from backend.schemas import ChatInfo, ChatMessageInfo, ChatRequest, ForkChatRequest, PinChatRequest, RenameChatRequest
+from backend.persistence import (
+    rename_chat as db_rename_chat,
+)
+from backend.schemas import (
+    ChatInfo,
+    ChatMessageInfo,
+    ChatRequest,
+    ForkChatRequest,
+    PinChatRequest,
+    RenameChatRequest,
+)
+from fastapi import APIRouter, HTTPException
+from fastapi.responses import StreamingResponse
 
 logger = logging.getLogger(__name__)
 
@@ -71,7 +87,9 @@ async def chat(body: ChatRequest):
         }
     else:
         if not body.repo_id:
-            raise HTTPException(status_code=400, detail="Either repo_id or repo_ids (2+) must be provided.")
+            raise HTTPException(
+                status_code=400, detail="Either repo_id or repo_ids (2+) must be provided."
+            )
         repo = await asyncio.to_thread(get_repo, body.repo_id)
         if not repo:
             raise HTTPException(
@@ -106,7 +124,7 @@ async def chat(body: ChatRequest):
                     ]
                 )
                 source_chunks: list[SourceChunk] = []
-                for rid, chunks in zip(body.repo_ids, retrieve_results):  # type: ignore[union-attr]
+                for rid, chunks in zip(body.repo_ids, retrieve_results, strict=True):  # type: ignore[union-attr]
                     for chunk in chunks:
                         tagged = dict(chunk)
                         tagged["repo_id"] = rid
@@ -115,7 +133,11 @@ async def chat(body: ChatRequest):
                 text_chunks = _build_multi_repo_context(source_chunks, body.repo_ids, repo_names)  # type: ignore[arg-type]
             else:
                 source_chunks = await asyncio.to_thread(
-                    hybrid_retrieve, body.repo_id, body.question, 5, body.scope_paths  # type: ignore[arg-type]
+                    hybrid_retrieve,
+                    body.repo_id,
+                    body.question,
+                    5,
+                    body.scope_paths,  # type: ignore[arg-type]
                 )
                 if get_settings().use_reranker:
                     source_chunks = await asyncio.to_thread(
@@ -127,7 +149,11 @@ async def chat(body: ChatRequest):
             yield f"event: sources\ndata: {json.dumps(source_chunks)}\n\n"
 
             async for item in stream_answer(
-                body.question, text_chunks, body.mode, history, diff_context,
+                body.question,
+                text_chunks,
+                body.mode,
+                history,
+                diff_context,
                 system_prompt=_MULTI_REPO_SYSTEM_PROMPT if is_multi_repo else None,
             ):
                 if isinstance(item, TokenUsage):
@@ -143,7 +169,7 @@ async def chat(body: ChatRequest):
         except Exception:
             had_error = True
             logger.exception("Unexpected error in /chat for repo '%s'", repo_id_for_log)
-            yield f"data: [ERROR] Internal server error.\n\n"
+            yield "data: [ERROR] Internal server error.\n\n"
         finally:
             if body.chat_id and not is_multi_repo and accumulated:
                 full_response = "".join(accumulated)
@@ -201,7 +227,7 @@ async def rename_chat(chat_id: str, body: RenameChatRequest):
     chat = await asyncio.to_thread(get_chat, chat_id)
     if not chat:
         raise HTTPException(status_code=404, detail=f"Chat '{chat_id}' not found.")
-    await asyncio.to_thread(rename_chat, chat_id, body.title)
+    await asyncio.to_thread(db_rename_chat, chat_id, body.title)
     updated = await asyncio.to_thread(get_chat, chat_id)
     return ChatInfo(**updated)
 
@@ -211,7 +237,7 @@ async def delete_chat(chat_id: str):
     chat = await asyncio.to_thread(get_chat, chat_id)
     if not chat:
         raise HTTPException(status_code=404, detail=f"Chat '{chat_id}' not found.")
-    await asyncio.to_thread(delete_chat, chat_id)
+    await asyncio.to_thread(db_delete_chat, chat_id)
     return {"status": "deleted", "chat_id": chat_id}
 
 

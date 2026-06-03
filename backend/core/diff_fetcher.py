@@ -14,16 +14,12 @@ from typing import TypedDict
 import httpx
 from github import Github, GithubException
 
-_GITHUB_PR_RE = re.compile(
-    r'github\.com/([^/]+)/([^/]+)/pull/(\d+)', re.IGNORECASE
-)
+_GITHUB_PR_RE = re.compile(r"github\.com/([^/]+)/([^/]+)/pull/(\d+)", re.IGNORECASE)
 _GITHUB_COMMIT_RE = re.compile(
-    r'github\.com/([^/]+)/([^/]+)/commit/([0-9a-f]{7,40})', re.IGNORECASE
+    r"github\.com/([^/]+)/([^/]+)/commit/([0-9a-f]{7,40})", re.IGNORECASE
 )
-_BITBUCKET_PR_RE = re.compile(
-    r'bitbucket\.org/([^/]+)/([^/]+)/pull-requests/(\d+)', re.IGNORECASE
-)
-_COMMIT_SHA_RE = re.compile(r'^[0-9a-f]{7,40}$', re.IGNORECASE)
+_BITBUCKET_PR_RE = re.compile(r"bitbucket\.org/([^/]+)/([^/]+)/pull-requests/(\d+)", re.IGNORECASE)
+_COMMIT_SHA_RE = re.compile(r"^[0-9a-f]{7,40}$", re.IGNORECASE)
 
 _MAX_PATCH_LINES = 150
 _MAX_FILES = 40
@@ -87,9 +83,8 @@ async def fetch_diff(
 # GitHub PR
 # ---------------------------------------------------------------------------
 
-async def _fetch_github_pr(
-    owner: str, repo: str, pr_number: int, token: str | None
-) -> DiffResult:
+
+async def _fetch_github_pr(owner: str, repo: str, pr_number: int, token: str | None) -> DiffResult:
     try:
         g = Github(token or None)
         gh_repo = g.get_repo(f"{owner}/{repo}")
@@ -103,14 +98,16 @@ async def _fetch_github_pr(
     for f in list(pr.get_files())[:_MAX_FILES]:
         ct = _map_github_status(f.status)
         patch = _truncate_patch(f.patch or "")
-        files.append(DiffFile(
-            file_path=f.filename,
-            old_path=f.previous_filename if f.status == "renamed" else None,
-            change_type=ct,
-            patch=patch,
-            additions=f.additions,
-            deletions=f.deletions,
-        ))
+        files.append(
+            DiffFile(
+                file_path=f.filename,
+                old_path=f.previous_filename if f.status == "renamed" else None,
+                change_type=ct,
+                patch=patch,
+                additions=f.additions,
+                deletions=f.deletions,
+            )
+        )
         total_add += f.additions
         total_del += f.deletions
 
@@ -127,9 +124,8 @@ async def _fetch_github_pr(
 # GitHub commit
 # ---------------------------------------------------------------------------
 
-async def _fetch_github_commit(
-    owner: str, repo: str, sha: str, token: str | None
-) -> DiffResult:
+
+async def _fetch_github_commit(owner: str, repo: str, sha: str, token: str | None) -> DiffResult:
     try:
         g = Github(token or None)
         gh_repo = g.get_repo(f"{owner}/{repo}")
@@ -143,14 +139,16 @@ async def _fetch_github_commit(
     for f in list(commit.files)[:_MAX_FILES]:
         ct = _map_github_status(f.status)
         patch = _truncate_patch(f.patch or "")
-        files.append(DiffFile(
-            file_path=f.filename,
-            old_path=f.previous_filename if f.status == "renamed" else None,
-            change_type=ct,
-            patch=patch,
-            additions=f.additions,
-            deletions=f.deletions,
-        ))
+        files.append(
+            DiffFile(
+                file_path=f.filename,
+                old_path=f.previous_filename if f.status == "renamed" else None,
+                change_type=ct,
+                patch=patch,
+                additions=f.additions,
+                deletions=f.deletions,
+            )
+        )
         total_add += f.additions
         total_del += f.deletions
 
@@ -168,13 +166,14 @@ async def _fetch_github_commit(
 # Bitbucket PR  (public repos only — no auth yet)
 # ---------------------------------------------------------------------------
 
-async def _fetch_bitbucket_pr(
-    workspace: str, repo: str, pr_number: int
-) -> DiffResult:
+
+async def _fetch_bitbucket_pr(workspace: str, repo: str, pr_number: int) -> DiffResult:
     base = f"https://api.bitbucket.org/2.0/repositories/{workspace}/{repo}"
     async with httpx.AsyncClient(timeout=30.0, follow_redirects=True) as client:
         meta = (await client.get(f"{base}/pullrequests/{pr_number}")).raise_for_status().json()
-        diff_text = (await client.get(f"{base}/pullrequests/{pr_number}/diff")).raise_for_status().text
+        diff_text = (
+            (await client.get(f"{base}/pullrequests/{pr_number}/diff")).raise_for_status().text
+        )
 
     files = _parse_unified_diff(diff_text)
     total_add = sum(f["additions"] for f in files)
@@ -192,6 +191,7 @@ async def _fetch_bitbucket_pr(
 # ---------------------------------------------------------------------------
 # Local commit (gitpython)
 # ---------------------------------------------------------------------------
+
 
 def _fetch_local_commit(sha: str, repo_path: str) -> DiffResult:
     import git  # type: ignore[import]
@@ -215,21 +215,28 @@ def _fetch_local_commit(sha: str, repo_path: str) -> DiffResult:
             raw = ""
         patch = _truncate_patch(raw)
         add = sum(1 for ln in patch.splitlines() if ln.startswith("+") and not ln.startswith("+++"))
-        delete = sum(1 for ln in patch.splitlines() if ln.startswith("-") and not ln.startswith("---"))
+        delete = sum(
+            1 for ln in patch.splitlines() if ln.startswith("-") and not ln.startswith("---")
+        )
 
-        files.append(DiffFile(
-            file_path=d.b_path or d.a_path or "",
-            old_path=d.a_path if d.renamed_file else None,
-            change_type=(
-                "renamed" if d.renamed_file
-                else "added" if d.new_file
-                else "deleted" if d.deleted_file
-                else "modified"
-            ),
-            patch=patch,
-            additions=add,
-            deletions=delete,
-        ))
+        files.append(
+            DiffFile(
+                file_path=d.b_path or d.a_path or "",
+                old_path=d.a_path if d.renamed_file else None,
+                change_type=(
+                    "renamed"
+                    if d.renamed_file
+                    else "added"
+                    if d.new_file
+                    else "deleted"
+                    if d.deleted_file
+                    else "modified"
+                ),
+                patch=patch,
+                additions=add,
+                deletions=delete,
+            )
+        )
         total_add += add
         total_del += delete
 
@@ -246,6 +253,7 @@ def _fetch_local_commit(sha: str, repo_path: str) -> DiffResult:
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
+
 
 def _map_github_status(status: str) -> str:
     return {
@@ -270,14 +278,16 @@ def _parse_unified_diff(diff_text: str) -> list[DiffFile]:
         nonlocal add, del_
         if current_path is None:
             return
-        files.append(DiffFile(
-            file_path=current_path,
-            old_path=None,
-            change_type="modified",
-            patch=_truncate_patch("\n".join(patch_lines)),
-            additions=add,
-            deletions=del_,
-        ))
+        files.append(
+            DiffFile(
+                file_path=current_path,
+                old_path=None,
+                change_type="modified",
+                patch=_truncate_patch("\n".join(patch_lines)),
+                additions=add,
+                deletions=del_,
+            )
+        )
 
     for line in diff_text.splitlines():
         if line.startswith("diff --git "):
@@ -302,10 +312,11 @@ def _parse_unified_diff(diff_text: str) -> list[DiffFile]:
 # Format diff for LLM prompt injection
 # ---------------------------------------------------------------------------
 
+
 def format_diff_for_prompt(diff: dict) -> str:
     """Render a stored diff dict as a text block suitable for an LLM prompt."""
     lines = [
-        f"=== PR / Diff Analysis ===",
+        "=== PR / Diff Analysis ===",
         f"Title    : {diff['title']}",
         f"Changes  : +{diff['additions']} additions, -{diff['deletions']} deletions across {diff['files_changed']} file(s)",
     ]
