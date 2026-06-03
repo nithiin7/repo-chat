@@ -9,8 +9,8 @@ from fastapi import APIRouter, HTTPException, Query
 from fastapi.responses import StreamingResponse
 
 from backend.config import get_settings
-from backend.core.fetcher import FetchResult, RepoFetchError, fetch_repo, get_remote_head
-from backend.core.indexer import build_index, delete_index
+from backend.core.fetcher import FetchResult, RepoFetchError, collect_files, fetch_repo, get_remote_head, pull_repo
+from backend.core.indexer import build_index, delete_index, sync_index
 from backend.core.hybrid_retriever import hybrid_retrieve
 from backend.persistence import (
     create_chat,
@@ -225,6 +225,100 @@ async def repo_status(repo_id: str):
         has_updates=has_updates,
         indexed_commit=indexed_commit,
         remote_commit=remote_commit,
+    )
+
+
+@router.post("/repos/{repo_id}/sync/stream")
+async def sync_repo_stream(repo_id: str):
+    async def event_stream():
+        queue: asyncio.Queue = asyncio.Queue()
+        loop = asyncio.get_running_loop()
+
+        def on_progress(current: int, total: int, name: str) -> None:
+            loop.call_soon_threadsafe(
+                queue.put_nowait,
+                {"type": "file", "current": current, "total": total, "name": name},
+            )
+
+        async def run() -> None:
+            try:
+                existing = await asyncio.to_thread(get_repo, repo_id)
+                if not existing:
+                    await queue.put({"type": "error", "message": f"Repo '{repo_id}' not found."})
+                    return
+
+                await queue.put({"type": "pulling"})
+                local_path = Path(get_settings().repos_dir) / existing["name"]
+
+                try:
+                    sync_result = await asyncio.to_thread(
+                        pull_repo, local_path, branch=existing.get("branch")
+                    )
+                except RepoFetchError as exc:
+                    await queue.put({"type": "error", "message": str(exc)})
+                    return
+
+                if sync_result.old_commit == sync_result.new_commit:
+                    await queue.put({
+                        "type": "done",
+                        "repo_id": repo_id,
+                        "changed_count": 0,
+                        "deleted_count": 0,
+                        "status": "up_to_date",
+                    })
+                    return
+
+                total = len(sync_result.changed_files) + len(sync_result.deleted_files)
+                await queue.put({"type": "files_found", "total": total})
+
+                try:
+                    _, files_reindexed = await asyncio.to_thread(
+                        sync_index,
+                        sync_result.changed_files,
+                        sync_result.deleted_files,
+                        repo_id,
+                        on_progress,
+                    )
+                except Exception as exc:
+                    await queue.put({"type": "error", "message": str(exc)})
+                    return
+
+                all_files = await asyncio.to_thread(collect_files, local_path)
+                await asyncio.to_thread(
+                    upsert_repo,
+                    repo_id,
+                    existing["name"],
+                    existing["url"],
+                    datetime.now(timezone.utc).isoformat(),
+                    len(all_files),
+                    sync_result.new_commit,
+                    existing.get("branch"),
+                )
+
+                await queue.put({
+                    "type": "done",
+                    "repo_id": repo_id,
+                    "changed_count": files_reindexed,
+                    "deleted_count": len(sync_result.deleted_files),
+                    "status": "synced",
+                })
+            except Exception as exc:
+                await queue.put({"type": "error", "message": str(exc)})
+
+        task = asyncio.create_task(run())
+
+        while True:
+            event = await queue.get()
+            yield f"data: {json.dumps(event)}\n\n"
+            if event["type"] in ("done", "error"):
+                break
+
+        await task
+
+    return StreamingResponse(
+        event_stream(),
+        media_type="text/event-stream",
+        headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
     )
 
 

@@ -36,6 +36,39 @@ export async function* indexRepoStream(
   }
 }
 
+export async function syncRepo(repoId: string): Promise<{ changed_count: number; deleted_count: number; status: string }> {
+  const res = await fetch(`${API_BASE}/repos/${encodeURIComponent(repoId)}/sync/stream`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+  });
+  if (!res.ok || !res.body) {
+    throw new Error(`Sync failed: ${res.status} ${await res.text()}`);
+  }
+  const reader = res.body.getReader();
+  const decoder = new TextDecoder();
+  let buffer = "";
+  let result: { changed_count: number; deleted_count: number; status: string } | null = null;
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    buffer += decoder.decode(value, { stream: true });
+    const lines = buffer.split("\n");
+    buffer = lines.pop() ?? "";
+    for (const line of lines) {
+      if (!line.startsWith("data: ")) continue;
+      const text = line.slice(6).trim();
+      if (!text) continue;
+      const event = JSON.parse(text);
+      if (event.type === "error") throw new Error(event.message);
+      if (event.type === "done") {
+        result = { changed_count: event.changed_count, deleted_count: event.deleted_count, status: event.status };
+      }
+    }
+  }
+  if (!result) throw new Error("Sync stream ended without a result.");
+  return result;
+}
+
 export function listRepos(): Promise<Repo[]> {
   return api.get<Repo[]>("/repos");
 }

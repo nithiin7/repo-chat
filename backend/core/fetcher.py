@@ -53,6 +53,15 @@ class FetchResult:
         return self.local_path.name
 
 
+@dataclass
+class SyncResult:
+    local_path: Path
+    old_commit: str
+    new_commit: str
+    changed_files: list[Path] = field(default_factory=list)
+    deleted_files: list[str] = field(default_factory=list)
+
+
 # ----- errors ---------------------------------------------------------------
 
 class RepoFetchError(Exception):
@@ -285,6 +294,83 @@ def fetch_repo(
     if provider == "github":
         return fetch_github_repo(owner, repo_name, dest, token=github_token, branch=branch)
     return fetch_bitbucket_repo(owner, repo_name, dest, branch=branch)
+
+
+# ----- incremental sync (pull) ----------------------------------------------
+
+def pull_repo(
+    local_path: Path,
+    *,
+    branch: str | None = None,
+) -> SyncResult:
+    """
+    Update an existing shallow clone via git fetch + reset --hard FETCH_HEAD.
+    Returns a SyncResult with lists of indexable changed and deleted file paths.
+    Raises RepoFetchError if the local repo is missing or the fetch fails.
+    """
+    if not local_path.exists():
+        raise RepoFetchError(
+            f"Local repo not found at '{local_path}'. Re-index the repository first."
+        )
+
+    try:
+        repo = git.Repo(str(local_path))
+    except git.InvalidGitRepositoryError as exc:
+        raise RepoFetchError(f"'{local_path}' is not a valid git repository.") from exc
+
+    old_sha = repo.head.commit.hexsha
+
+    try:
+        if branch:
+            repo.remotes.origin.fetch(branch, depth=1)
+        else:
+            repo.remotes.origin.fetch(depth=1)
+    except GitCommandError as exc:
+        raise RepoFetchError(f"Git fetch failed: {exc}") from exc
+
+    # Diff before resetting the working tree
+    try:
+        deleted_out = repo.git.diff("HEAD", "FETCH_HEAD", "--name-only", "--diff-filter=D")
+        changed_out = repo.git.diff("HEAD", "FETCH_HEAD", "--name-only", "--diff-filter=ACMR")
+    except GitCommandError:
+        deleted_out = ""
+        changed_out = ""
+
+    repo.git.reset("--hard", "FETCH_HEAD")
+    new_sha = repo.head.commit.hexsha
+
+    if old_sha == new_sha:
+        return SyncResult(
+            local_path=local_path,
+            old_commit=old_sha,
+            new_commit=new_sha,
+        )
+
+    deleted_files: list[str] = []
+    for rel in deleted_out.splitlines():
+        rel = rel.strip()
+        if rel and Path(rel).suffix in INDEXABLE_EXTENSIONS:
+            deleted_files.append(str(local_path / rel))
+
+    changed_files: list[Path] = []
+    for rel in changed_out.splitlines():
+        rel = rel.strip()
+        if not rel:
+            continue
+        abs_path = local_path / rel
+        if abs_path.suffix not in INDEXABLE_EXTENSIONS or not abs_path.is_file():
+            continue
+        if any(part in _SKIP_DIRS for part in abs_path.relative_to(local_path).parts):
+            continue
+        changed_files.append(abs_path)
+
+    return SyncResult(
+        local_path=local_path,
+        old_commit=old_sha,
+        new_commit=new_sha,
+        changed_files=sorted(changed_files),
+        deleted_files=sorted(deleted_files),
+    )
 
 
 # ----- remote HEAD commit check ---------------------------------------------

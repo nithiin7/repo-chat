@@ -228,6 +228,76 @@ def _index_symbols(file_paths: list[Path], repo_id: str) -> None:
         logger.warning("Symbol indexing failed for '%s': %s", repo_id, exc)
 
 
+def _delete_chunks_for_files(collection: chromadb.Collection, file_paths: list[str]) -> None:
+    if not file_paths:
+        return
+    try:
+        collection.delete(where={"file_path": {"$in": file_paths}})
+        logger.info("Deleted ChromaDB chunks for %d file(s).", len(file_paths))
+    except Exception as exc:
+        logger.warning("Failed to delete chunks for files: %s", exc)
+
+
+def sync_index(
+    changed_files: list[Path],
+    deleted_file_paths: list[str],
+    repo_id: str,
+    progress_callback: Callable[[int, int, str], None] | None = None,
+) -> tuple[int, int]:
+    """
+    Incrementally update the index:
+    - Remove ChromaDB + SQLite entries for changed and deleted files
+    - Re-embed changed files only
+    Returns (child_chunks_added, files_reindexed).
+    """
+    from backend.persistence.parent_chunk import delete_parent_chunks_for_files, save_parent_chunks
+    from backend.persistence.symbol import delete_symbols_for_files, insert_symbols
+
+    all_affected = [str(p) for p in changed_files] + deleted_file_paths
+    if all_affected:
+        collection = get_chroma_collection(repo_id)
+        _delete_chunks_for_files(collection, all_affected)
+        delete_parent_chunks_for_files(repo_id, all_affected)
+        delete_symbols_for_files(repo_id, all_affected)
+
+    from backend.core.hybrid_retriever import invalidate_cache as _invalidate_hybrid
+    _invalidate_hybrid(repo_id)
+
+    if not changed_files:
+        return 0, 0
+
+    docs = _load_documents(changed_files, progress_callback)
+    if not docs:
+        return 0, len(changed_files)
+
+    child_nodes, parent_dicts = _build_chunks(docs)
+
+    save_parent_chunks(repo_id, parent_dicts)
+
+    collection = get_chroma_collection(repo_id)
+    vector_store = ChromaVectorStore(chroma_collection=collection)
+    storage_context = StorageContext.from_defaults(vector_store=vector_store)
+    VectorStoreIndex(
+        nodes=child_nodes,
+        storage_context=storage_context,
+        embed_model=_get_embed_model(),
+        show_progress=False,
+    )
+
+    try:
+        symbols = extract_symbols(changed_files)
+        inserted = insert_symbols(repo_id, [asdict(s) for s in symbols])
+        logger.info("Synced %d symbols for %d file(s) in repo '%s'.", inserted, len(changed_files), repo_id)
+    except Exception as exc:
+        logger.warning("Symbol sync failed for '%s': %s", repo_id, exc)
+
+    logger.info(
+        "Sync complete for repo '%s': %d child chunks added for %d file(s).",
+        repo_id, len(child_nodes), len(changed_files),
+    )
+    return len(child_nodes), len(changed_files)
+
+
 def delete_index(repo_id: str) -> None:
     """Drop the ChromaDB collection, parent chunks, and symbol rows for repo_id."""
     from backend.core.hybrid_retriever import invalidate_cache as _invalidate_hybrid

@@ -5,7 +5,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { motion } from 'framer-motion'
 import { GitBranch, GitFork, MessageSquare, Trash2, Loader2, FileCode2, Clock, RefreshCw, Search } from 'lucide-react'
 import { Button } from '@/components/ui/button'
-import { checkRepoStatus, deleteRepo, indexRepo } from '@/lib/api/repos'
+import { checkRepoStatus, deleteRepo, indexRepo, syncRepo } from '@/lib/api/repos'
 import { queryKeys } from '@/lib/api/queryKeys'
 import { cn } from '@/lib/utils'
 import type { Repo } from '@/types'
@@ -40,6 +40,14 @@ const RepoCard = ({ repo, index = 0 }: { repo: Repo; index?: number }) => {
     },
   })
 
+  const { mutate: handleSync, isPending: syncing } = useMutation({
+    mutationFn: () => syncRepo(repo.repo_id),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: queryKeys.repos() })
+      void queryClient.invalidateQueries({ queryKey: queryKeys.repoStatus(repo.repo_id) })
+    },
+  })
+
   return (
     <motion.article
       initial={{ opacity: 0, y: 20 }}
@@ -50,7 +58,7 @@ const RepoCard = ({ repo, index = 0 }: { repo: Repo; index?: number }) => {
         'group relative flex flex-col gap-4 rounded-xl border border-border bg-card p-5',
         'transition-[border-color,background-color,box-shadow] duration-200 hover:border-indigo-500/30 hover:bg-card/80 hover:shadow-lg hover:shadow-indigo-500/5',
         hasUpdates && 'border-amber-500/30',
-        (deleting || reindexing) && 'pointer-events-none opacity-40',
+        (deleting || reindexing || syncing) && 'pointer-events-none opacity-40',
       )}
     >
       {/* Action buttons — visible on hover */}
@@ -100,7 +108,7 @@ const RepoCard = ({ repo, index = 0 }: { repo: Repo; index?: number }) => {
       {hasUpdates && (
         <div className="flex items-center gap-1.5 rounded-md bg-amber-500/10 px-2.5 py-1.5 text-xs font-medium text-amber-400">
           <RefreshCw className="size-3" />
-          New commits available — re-index to update
+          New commits available — sync to update
         </div>
       )}
 
@@ -130,18 +138,18 @@ const RepoCard = ({ repo, index = 0 }: { repo: Repo; index?: number }) => {
       {hasUpdates ? (
         <div className="mt-auto flex gap-2">
           <Button
-            onClick={() => handleReindex()}
-            disabled={reindexing}
+            onClick={() => handleSync()}
+            disabled={syncing}
             size="sm"
             variant="outline"
             className="flex-1 gap-2 border-amber-500/30 text-amber-400 hover:bg-amber-500/10 hover:text-amber-300"
           >
-            {reindexing ? (
+            {syncing ? (
               <Loader2 className="size-3.5 animate-spin" />
             ) : (
               <RefreshCw className="size-3.5" />
             )}
-            {reindexing ? 'Re-indexing…' : 'Re-index'}
+            {syncing ? 'Syncing…' : 'Sync'}
           </Button>
           <Button
             onClick={() => router.push(`/chat/${repo.repo_id}`)}

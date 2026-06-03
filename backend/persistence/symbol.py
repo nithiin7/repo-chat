@@ -69,3 +69,18 @@ def delete_symbols(repo_id: str) -> None:
         for row in rows:
             session.delete(row)
         session.commit()
+
+
+def delete_symbols_for_files(repo_id: str, file_paths: list[str]) -> None:
+    """Delete symbols for specific files only (used by incremental sync)."""
+    if not file_paths:
+        return
+    with Session(_get_engine()) as session:
+        rows = session.exec(
+            select(Symbol)
+            .where(Symbol.repo_id == repo_id)
+            .where(Symbol.file_path.in_(file_paths))
+        ).all()
+        for row in rows:
+            session.delete(row)
+        session.commit()
