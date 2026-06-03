@@ -1,7 +1,10 @@
-cd frontend && npx lint-staged
-cd ..
+#!/usr/bin/env sh
 
-STAGED_PY=$(git diff --cached --name-only --diff-filter=ACM | grep '^backend/.*\.py$')
+if git diff --cached --name-only --diff-filter=ACM | grep -q '^frontend/'; then
+  cd frontend && npx lint-staged && cd ..
+fi
+
+STAGED_PY=$(git diff --cached --name-only --diff-filter=ACM | grep '^backend/.*\.py$' || true)
 if [ -n "$STAGED_PY" ]; then
   backend/.venv/bin/ruff check --fix $STAGED_PY
   backend/.venv/bin/ruff format $STAGED_PY
