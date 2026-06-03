@@ -1,8 +1,8 @@
-import { Skeleton } from '@/components/ui/skeleton'
-import { NavBar } from '@/components/ui/nav-bar'
+import { Skeleton } from "@/components/ui/skeleton";
+import { NavBar } from "@/components/ui/nav-bar";
 
 const SettingsSectionSkeleton = () => (
-  <div className="flex flex-col rounded-xl border border-border bg-card p-6">
+  <div className="border-border bg-card flex flex-col rounded-xl border p-6">
     <div className="mb-6 flex items-center gap-3">
       <Skeleton className="size-8 rounded-lg" />
       <div className="space-y-1.5">
@@ -20,14 +20,14 @@ const SettingsSectionSkeleton = () => (
       </div>
       <div className="space-y-1.5">
         <Skeleton className="h-3 w-16" />
-        <div className="flex gap-1 self-start rounded-lg border border-border bg-card p-0.5">
+        <div className="border-border bg-card flex gap-1 self-start rounded-lg border p-0.5">
           <Skeleton className="h-7 w-20 rounded-md" />
           <Skeleton className="h-7 w-16 rounded-md" />
           <Skeleton className="h-7 w-12 rounded-md" />
           <Skeleton className="h-7 w-16 rounded-md" />
         </div>
       </div>
-      <div className="space-y-3 rounded-lg border border-border p-4">
+      <div className="border-border space-y-3 rounded-lg border p-4">
         <div className="space-y-1.5">
           <Skeleton className="h-3 w-12" />
           <Skeleton className="h-9 w-full rounded-md" />
@@ -39,7 +39,7 @@ const SettingsSectionSkeleton = () => (
       </div>
     </div>
   </div>
-)
+);
 
 export const SettingsSkeleton = () => (
   <>
@@ -51,17 +51,17 @@ export const SettingsSkeleton = () => (
       <SettingsSectionSkeleton />
       <SettingsSectionSkeleton />
     </div>
-    <div className="mt-8 border-t border-border pt-6">
+    <div className="border-border mt-8 border-t pt-6">
       <Skeleton className="h-10 w-32 rounded-lg" />
     </div>
   </>
-)
+);
 
 const SettingsLoading = () => (
   <div className="flex min-h-screen flex-col">
     <NavBar hideSettings />
 
-    <div className="border-b border-border/50 bg-muted/30">
+    <div className="border-border/50 bg-muted/30 border-b">
       <div className="mx-auto flex max-w-screen-2xl items-center gap-4 px-4 py-5 sm:px-6 lg:px-10">
         <Skeleton className="h-5 w-12" />
         <span className="text-border">/</span>
@@ -73,6 +73,6 @@ const SettingsLoading = () => (
       <SettingsSkeleton />
     </main>
   </div>
-)
+);
 
-export default SettingsLoading
+export default SettingsLoading;

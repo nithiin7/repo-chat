@@ -1,14 +1,24 @@
-'use client'
+"use client";
 
-import { useRouter } from 'next/navigation'
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { motion } from 'framer-motion'
-import { GitBranch, GitFork, MessageSquare, Trash2, Loader2, FileCode2, Clock, RefreshCw, Search } from 'lucide-react'
-import { Button } from '@/components/ui/button'
-import { checkRepoStatus, deleteRepo, indexRepo, syncRepo } from '@/lib/api/repos'
-import { queryKeys } from '@/lib/api/queryKeys'
-import { cn } from '@/lib/utils'
-import type { Repo } from '@/types'
+import { useRouter } from "next/navigation";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { motion } from "framer-motion";
+import {
+  GitBranch,
+  GitFork,
+  MessageSquare,
+  Trash2,
+  Loader2,
+  FileCode2,
+  Clock,
+  RefreshCw,
+  Search,
+} from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { checkRepoStatus, deleteRepo, indexRepo, syncRepo } from "@/lib/api/repos";
+import { queryKeys } from "@/lib/api/queryKeys";
+import { cn } from "@/lib/utils";
+import type { Repo } from "@/types";
 
 const RepoCard = ({
   repo,
@@ -16,47 +26,55 @@ const RepoCard = ({
   selected = false,
   onToggleSelect,
 }: {
-  repo: Repo
-  index?: number
-  selected?: boolean
-  onToggleSelect?: (id: string) => void
+  repo: Repo;
+  index?: number;
+  selected?: boolean;
+  onToggleSelect?: (id: string) => void;
 }) => {
-  const router = useRouter()
-  const queryClient = useQueryClient()
+  const router = useRouter();
+  const queryClient = useQueryClient();
 
-  const displayName = repo.name || repo.url.replace(/^https?:\/\//, '').split('/').slice(1, 3).join('/')
-  const indexedAt = new Date(repo.indexed_at).toLocaleDateString('en-US', {
-    month: 'short', day: 'numeric', year: 'numeric',
-  })
+  const displayName =
+    repo.name ||
+    repo.url
+      .replace(/^https?:\/\//, "")
+      .split("/")
+      .slice(1, 3)
+      .join("/");
+  const indexedAt = new Date(repo.indexed_at).toLocaleDateString("en-US", {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+  });
 
   const { data: status } = useQuery({
     queryKey: queryKeys.repoStatus(repo.repo_id),
     queryFn: () => checkRepoStatus(repo.repo_id),
     staleTime: 60 * 1000,
     retry: false,
-  })
-  const hasUpdates = status?.has_updates ?? false
+  });
+  const hasUpdates = status?.has_updates ?? false;
 
   const { mutate: handleDelete, isPending: deleting } = useMutation({
     mutationFn: () => deleteRepo(repo.repo_id),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: queryKeys.repos() }),
-  })
+  });
 
   const { mutate: handleReindex, isPending: reindexing } = useMutation({
     mutationFn: () => indexRepo({ repo_url: repo.url, force: true }),
     onSuccess: () => {
-      void queryClient.invalidateQueries({ queryKey: queryKeys.repos() })
-      void queryClient.invalidateQueries({ queryKey: queryKeys.repoStatus(repo.repo_id) })
+      void queryClient.invalidateQueries({ queryKey: queryKeys.repos() });
+      void queryClient.invalidateQueries({ queryKey: queryKeys.repoStatus(repo.repo_id) });
     },
-  })
+  });
 
   const { mutate: handleSync, isPending: syncing } = useMutation({
     mutationFn: () => syncRepo(repo.repo_id),
     onSuccess: () => {
-      void queryClient.invalidateQueries({ queryKey: queryKeys.repos() })
-      void queryClient.invalidateQueries({ queryKey: queryKeys.repoStatus(repo.repo_id) })
+      void queryClient.invalidateQueries({ queryKey: queryKeys.repos() });
+      void queryClient.invalidateQueries({ queryKey: queryKeys.repoStatus(repo.repo_id) });
     },
-  })
+  });
 
   return (
     <motion.article
@@ -65,27 +83,37 @@ const RepoCard = ({
       transition={{ duration: 0.35, delay: index * 0.06, ease: [0.25, 0.1, 0.25, 1] }}
       whileHover={{ y: -2 }}
       className={cn(
-        'group relative flex flex-col gap-4 rounded-xl border border-border bg-card p-5',
-        'transition-[border-color,background-color,box-shadow] duration-200 hover:border-indigo-500/30 hover:bg-card/80 hover:shadow-lg hover:shadow-indigo-500/5',
-        hasUpdates && 'border-amber-500/30',
-        selected && 'border-indigo-500/60 ring-1 ring-indigo-500/30',
-        (deleting || reindexing || syncing) && 'pointer-events-none opacity-40',
+        "group border-border bg-card relative flex flex-col gap-4 rounded-xl border p-5",
+        "hover:bg-card/80 transition-[border-color,background-color,box-shadow] duration-200 hover:border-indigo-500/30 hover:shadow-lg hover:shadow-indigo-500/5",
+        hasUpdates && "border-amber-500/30",
+        selected && "border-indigo-500/60 ring-1 ring-indigo-500/30",
+        (deleting || reindexing || syncing) && "pointer-events-none opacity-40"
       )}
     >
       {/* Compare checkbox */}
       {onToggleSelect && (
         <button
-          onClick={(e) => { e.stopPropagation(); onToggleSelect(repo.repo_id) }}
-          aria-label={selected ? 'Deselect for comparison' : 'Select for comparison'}
+          onClick={(e) => {
+            e.stopPropagation();
+            onToggleSelect(repo.repo_id);
+          }}
+          aria-label={selected ? "Deselect for comparison" : "Select for comparison"}
           className={cn(
-            'absolute left-3 top-3 flex size-5 cursor-pointer items-center justify-center rounded border transition-all duration-150',
+            "absolute top-3 left-3 flex size-5 cursor-pointer items-center justify-center rounded border transition-all duration-150",
             selected
-              ? 'border-indigo-500 bg-indigo-500 text-white'
-              : 'border-border bg-background opacity-30 group-hover:opacity-100',
+              ? "border-indigo-500 bg-indigo-500 text-white"
+              : "border-border bg-background opacity-30 group-hover:opacity-100"
           )}
         >
           {selected && (
-            <svg className="size-3 stroke-current" viewBox="0 0 12 12" fill="none" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <svg
+              className="size-3 stroke-current"
+              viewBox="0 0 12 12"
+              fill="none"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            >
               <path d="M2 6l3 3 5-5" />
             </svg>
           )}
@@ -93,25 +121,25 @@ const RepoCard = ({
       )}
 
       {/* Action buttons — visible on hover */}
-      <div className="absolute right-3 top-3 flex items-center gap-1 opacity-0 transition-opacity duration-150 group-hover:opacity-100">
+      <div className="absolute top-3 right-3 flex items-center gap-1 opacity-0 transition-opacity duration-150 group-hover:opacity-100">
         <button
           onClick={() => handleReindex()}
           disabled={reindexing}
           aria-label="Re-index repository"
           className={cn(
-            'cursor-pointer rounded-md p-1.5 text-muted-foreground transition-all duration-150',
+            "text-muted-foreground cursor-pointer rounded-md p-1.5 transition-all duration-150",
             hasUpdates
-              ? 'opacity-100 text-amber-400 hover:bg-amber-500/10'
-              : 'hover:bg-muted hover:text-foreground',
+              ? "text-amber-400 opacity-100 hover:bg-amber-500/10"
+              : "hover:bg-muted hover:text-foreground"
           )}
         >
-          <RefreshCw className={cn('size-3.5', reindexing && 'animate-spin')} />
+          <RefreshCw className={cn("size-3.5", reindexing && "animate-spin")} />
         </button>
         <button
           onClick={() => handleDelete()}
           disabled={deleting}
           aria-label="Delete repository"
-          className="cursor-pointer rounded-md p-1.5 text-muted-foreground transition-all duration-150 hover:bg-red-500/10 hover:text-red-400"
+          className="text-muted-foreground cursor-pointer rounded-md p-1.5 transition-all duration-150 hover:bg-red-500/10 hover:text-red-400"
         >
           {deleting ? (
             <Loader2 className="size-3.5 animate-spin" />
@@ -123,15 +151,17 @@ const RepoCard = ({
 
       {/* Header */}
       <div className="flex items-start gap-3">
-        <div className={cn(
-          'mt-0.5 flex size-9 shrink-0 items-center justify-center rounded-lg',
-          hasUpdates ? 'bg-amber-500/10 text-amber-400' : 'bg-indigo-500/10 text-indigo-400',
-        )}>
+        <div
+          className={cn(
+            "mt-0.5 flex size-9 shrink-0 items-center justify-center rounded-lg",
+            hasUpdates ? "bg-amber-500/10 text-amber-400" : "bg-indigo-500/10 text-indigo-400"
+          )}
+        >
           <GitFork className="size-4" />
         </div>
         <div className="min-w-0 flex-1 pr-16">
-          <h3 className="truncate font-semibold text-foreground">{displayName}</h3>
-          <p className="mt-0.5 truncate text-xs text-muted-foreground">{repo.url}</p>
+          <h3 className="text-foreground truncate font-semibold">{displayName}</h3>
+          <p className="text-muted-foreground mt-0.5 truncate text-xs">{repo.url}</p>
         </div>
       </div>
 
@@ -144,7 +174,7 @@ const RepoCard = ({
       )}
 
       {/* Stats */}
-      <div className="flex flex-wrap items-center gap-3 text-xs text-muted-foreground">
+      <div className="text-muted-foreground flex flex-wrap items-center gap-3 text-xs">
         <span className="flex items-center gap-1.5">
           <FileCode2 className="size-3.5" />
           {repo.file_count.toLocaleString()} files
@@ -180,7 +210,7 @@ const RepoCard = ({
             ) : (
               <RefreshCw className="size-3.5" />
             )}
-            {syncing ? 'Syncing…' : 'Sync'}
+            {syncing ? "Syncing…" : "Sync"}
           </Button>
           <Button
             onClick={() => router.push(`/chat/${repo.repo_id}`)}
@@ -213,7 +243,7 @@ const RepoCard = ({
         </div>
       )}
     </motion.article>
-  )
-}
+  );
+};
 
-export default RepoCard
+export default RepoCard;

@@ -17,7 +17,8 @@ const jetbrainsMono = JetBrains_Mono({
 
 export const metadata: Metadata = {
   title: "CodeLens — Ask anything about any codebase",
-  description: "RAG-powered codebase Q&A. Index a GitHub or Bitbucket repo and chat with it instantly.",
+  description:
+    "RAG-powered codebase Q&A. Index a GitHub or Bitbucket repo and chat with it instantly.",
 };
 
 const RootLayout = ({ children }: Readonly<{ children: React.ReactNode }>) => (
@@ -26,10 +27,10 @@ const RootLayout = ({ children }: Readonly<{ children: React.ReactNode }>) => (
     suppressHydrationWarning
     className={`${inter.variable} ${jetbrainsMono.variable} h-full antialiased`}
   >
-    <body className="min-h-full flex flex-col">
+    <body className="flex min-h-full flex-col">
       <Providers>{children}</Providers>
     </body>
   </html>
-)
+);
 
-export default RootLayout
+export default RootLayout;

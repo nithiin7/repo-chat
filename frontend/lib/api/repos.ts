@@ -7,7 +7,7 @@ export function indexRepo(body: IndexRequest): Promise<IndexResponse> {
 
 export async function* indexRepoStream(
   body: IndexRequest,
-  signal?: AbortSignal,
+  signal?: AbortSignal
 ): AsyncGenerator<IndexProgressEvent> {
   const res = await fetch(`${API_BASE}/index/stream`, {
     method: "POST",
@@ -36,7 +36,9 @@ export async function* indexRepoStream(
   }
 }
 
-export async function syncRepo(repoId: string): Promise<{ changed_count: number; deleted_count: number; status: string }> {
+export async function syncRepo(
+  repoId: string
+): Promise<{ changed_count: number; deleted_count: number; status: string }> {
   const res = await fetch(`${API_BASE}/repos/${encodeURIComponent(repoId)}/sync/stream`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -61,7 +63,11 @@ export async function syncRepo(repoId: string): Promise<{ changed_count: number;
       const event = JSON.parse(text);
       if (event.type === "error") throw new Error(event.message);
       if (event.type === "done") {
-        result = { changed_count: event.changed_count, deleted_count: event.deleted_count, status: event.status };
+        result = {
+          changed_count: event.changed_count,
+          deleted_count: event.deleted_count,
+          status: event.status,
+        };
       }
     }
   }

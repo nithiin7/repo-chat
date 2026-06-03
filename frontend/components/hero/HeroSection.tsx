@@ -1,10 +1,10 @@
-'use client'
+"use client";
 
-import { motion } from 'framer-motion'
-import { CodeXml, Zap } from 'lucide-react'
-import RepoInput from '@/components/repo/RepoInput'
+import { motion } from "framer-motion";
+import { CodeXml, Zap } from "lucide-react";
+import RepoInput from "@/components/repo/RepoInput";
 
-const ease = 'easeOut' as const
+const ease = "easeOut" as const;
 
 const HeroSection = () => (
   <>
@@ -13,7 +13,7 @@ const HeroSection = () => (
       initial={{ opacity: 0, y: 14 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.5, ease }}
-      className="relative mx-auto mb-8 inline-flex items-center gap-2 rounded-full border border-border bg-muted px-3.5 py-1.5 text-xs font-medium tracking-wide text-muted-foreground"
+      className="border-border bg-muted text-muted-foreground relative mx-auto mb-8 inline-flex items-center gap-2 rounded-full border px-3.5 py-1.5 text-xs font-medium tracking-wide"
     >
       <Zap className="size-3 text-indigo-500" />
       RAG-powered · Local or Cloud LLM
@@ -34,7 +34,7 @@ const HeroSection = () => (
       initial={{ opacity: 0, y: 14 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.5, delay: 0.16, ease }}
-      className="relative bg-linear-to-b from-foreground to-foreground/40 bg-clip-text text-5xl font-bold tracking-tight text-transparent dark:from-white dark:via-white/90 dark:to-white/40 sm:text-6xl"
+      className="from-foreground to-foreground/40 relative bg-linear-to-b bg-clip-text text-5xl font-bold tracking-tight text-transparent sm:text-6xl dark:from-white dark:via-white/90 dark:to-white/40"
     >
       CodeLens
     </motion.h1>
@@ -44,7 +44,7 @@ const HeroSection = () => (
       initial={{ opacity: 0, y: 10 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.5, delay: 0.24, ease }}
-      className="relative mt-3 text-base text-muted-foreground"
+      className="text-muted-foreground relative mt-3 text-base"
     >
       Ask anything about any codebase
     </motion.p>
@@ -59,6 +59,6 @@ const HeroSection = () => (
       <RepoInput />
     </motion.div>
   </>
-)
+);
 
-export default HeroSection
+export default HeroSection;

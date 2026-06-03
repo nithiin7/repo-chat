@@ -1,21 +1,25 @@
-import { Skeleton } from '@/components/ui/skeleton'
+import { Skeleton } from "@/components/ui/skeleton";
 
-function MessageSkeleton({ align }: { align: 'left' | 'right' }) {
+function MessageSkeleton({ align }: { align: "left" | "right" }) {
   return (
-    <div className={`flex ${align === 'right' ? 'justify-end' : 'justify-start'}`}>
-      <div className={`flex max-w-[75%] flex-col gap-1 ${align === 'right' ? 'items-end' : 'items-start'}`}>
-        <Skeleton className={`h-16 rounded-2xl ${align === 'right' ? 'w-52 rounded-tr-sm' : 'w-72 rounded-tl-sm'}`} />
+    <div className={`flex ${align === "right" ? "justify-end" : "justify-start"}`}>
+      <div
+        className={`flex max-w-[75%] flex-col gap-1 ${align === "right" ? "items-end" : "items-start"}`}
+      >
+        <Skeleton
+          className={`h-16 rounded-2xl ${align === "right" ? "w-52 rounded-tr-sm" : "w-72 rounded-tl-sm"}`}
+        />
         <Skeleton className="h-3 w-16" />
       </div>
     </div>
-  )
+  );
 }
 
 export default function ChatLoading() {
   return (
     <div className="flex h-screen flex-col">
       {/* Top bar */}
-      <div className="flex h-14 shrink-0 items-center justify-between border-b border-border/50 bg-background/80 px-4 backdrop-blur-md">
+      <div className="border-border/50 bg-background/80 flex h-14 shrink-0 items-center justify-between border-b px-4 backdrop-blur-md">
         <div className="flex items-center gap-3">
           <Skeleton className="h-8 w-8 rounded-md" />
           <Skeleton className="h-8 w-8 rounded-lg" />
@@ -38,11 +42,11 @@ export default function ChatLoading() {
       </div>
 
       {/* Input bar */}
-      <div className="shrink-0 border-t border-border/50 bg-background/80 p-4 backdrop-blur-md">
+      <div className="border-border/50 bg-background/80 shrink-0 border-t p-4 backdrop-blur-md">
         <div className="mx-auto max-w-3xl">
           <Skeleton className="h-14 w-full rounded-xl" />
         </div>
       </div>
     </div>
-  )
+  );
 }

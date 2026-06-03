@@ -9,7 +9,5 @@ export function navigateSymbols(
 ): Promise<NavigateResponse> {
   const params = new URLSearchParams({ query, limit: String(limit) });
   if (kind) params.set("kind", kind);
-  return api.get<NavigateResponse>(
-    `/repos/${encodeURIComponent(repoId)}/navigate?${params}`
-  );
+  return api.get<NavigateResponse>(`/repos/${encodeURIComponent(repoId)}/navigate?${params}`);
 }

@@ -1,75 +1,80 @@
-import type { Message } from '@/types'
+import type { Message } from "@/types";
 
 function escapeHtml(s: string) {
   return s
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
 }
 
 function safeName(s: string) {
-  return s.replace(/[^a-z0-9]+/gi, '-').toLowerCase().slice(0, 60) || 'chat'
+  return (
+    s
+      .replace(/[^a-z0-9]+/gi, "-")
+      .toLowerCase()
+      .slice(0, 60) || "chat"
+  );
 }
 
 function buildMarkdown(messages: Message[], repoName: string): string {
   const lines: string[] = [
     `# CodeLens Chat — ${repoName}`,
     `Exported: ${new Date().toLocaleString()}`,
-    '',
-    '---',
-    '',
-  ]
+    "",
+    "---",
+    "",
+  ];
 
   for (const msg of messages) {
-    if (msg.role === 'user') {
-      lines.push(`## You\n\n${msg.content}`, '')
+    if (msg.role === "user") {
+      lines.push(`## You\n\n${msg.content}`, "");
     } else {
-      lines.push(`## CodeLens\n\n${msg.content}`, '')
+      lines.push(`## CodeLens\n\n${msg.content}`, "");
       if (msg.sources?.length) {
-        lines.push('**Sources:**')
-        for (const s of msg.sources) lines.push(`- \`${s.file_path}\``)
-        lines.push('')
+        lines.push("**Sources:**");
+        for (const s of msg.sources) lines.push(`- \`${s.file_path}\``);
+        lines.push("");
       }
     }
-    lines.push('---', '')
+    lines.push("---", "");
   }
 
-  return lines.join('\n')
+  return lines.join("\n");
 }
 
 export function exportMarkdown(messages: Message[], repoName: string, chatTitle: string) {
-  const exportable = messages.filter((m) => m.content && !m.streaming)
-  if (!exportable.length) return
+  const exportable = messages.filter((m) => m.content && !m.streaming);
+  if (!exportable.length) return;
 
-  const md = buildMarkdown(exportable, repoName)
-  const blob = new Blob([md], { type: 'text/markdown' })
-  const url = URL.createObjectURL(blob)
-  const a = document.createElement('a')
-  a.href = url
-  a.download = `${safeName(chatTitle)}.md`
-  a.click()
-  URL.revokeObjectURL(url)
+  const md = buildMarkdown(exportable, repoName);
+  const blob = new Blob([md], { type: "text/markdown" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = `${safeName(chatTitle)}.md`;
+  a.click();
+  URL.revokeObjectURL(url);
 }
 
 export function exportPdf(messages: Message[], repoName: string, chatTitle: string) {
-  const exportable = messages.filter((m) => m.content && !m.streaming)
-  if (!exportable.length) return
+  const exportable = messages.filter((m) => m.content && !m.streaming);
+  if (!exportable.length) return;
 
   const rows = exportable
     .map(
       (msg) => `
       <div class="message">
-        <div class="role role-${msg.role}">${msg.role === 'user' ? 'You' : 'CodeLens'}</div>
+        <div class="role role-${msg.role}">${msg.role === "user" ? "You" : "CodeLens"}</div>
         <div class="content">${escapeHtml(msg.content)}</div>
         ${
           msg.sources?.length
-            ? `<div class="sources"><strong>Sources:</strong><ul>${msg.sources.map((s) => `<li>${escapeHtml(s.file_path)}</li>`).join('')}</ul></div>`
-            : ''
+            ? `<div class="sources"><strong>Sources:</strong><ul>${msg.sources.map((s) => `<li>${escapeHtml(s.file_path)}</li>`).join("")}</ul></div>`
+            : ""
         }
-      </div>`,
+      </div>`
     )
-    .join('<hr/>')
+    .join("<hr/>");
 
   const html = `<!DOCTYPE html>
 <html>
@@ -97,15 +102,15 @@ export function exportPdf(messages: Message[], repoName: string, chatTitle: stri
   <hr/>
   ${rows}
 </body>
-</html>`
+</html>`;
 
-  const win = window.open('', '_blank')
-  if (!win) return
-  win.document.write(html)
-  win.document.close()
-  win.focus()
+  const win = window.open("", "_blank");
+  if (!win) return;
+  win.document.write(html);
+  win.document.close();
+  win.focus();
   setTimeout(() => {
-    win.print()
-    win.close()
-  }, 250)
+    win.print();
+    win.close();
+  }, 250);
 }

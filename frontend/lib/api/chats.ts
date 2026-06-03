@@ -39,7 +39,7 @@ export function chatStream(
   onContentDone: () => void,
   onError: (err: Event) => void,
   onDone: () => void,
-  onUsage?: (usage: TokenUsage) => void,
+  onUsage?: (usage: TokenUsage) => void
 ): () => void {
   const controller = new AbortController();
 
