@@ -81,7 +81,7 @@ const RepoCard = ({
             'absolute left-3 top-3 flex size-5 cursor-pointer items-center justify-center rounded border transition-all duration-150',
             selected
               ? 'border-indigo-500 bg-indigo-500 text-white'
-              : 'border-border bg-background opacity-0 group-hover:opacity-100',
+              : 'border-border bg-background opacity-30 group-hover:opacity-100',
           )}
         >
           {selected && (

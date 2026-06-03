@@ -3,7 +3,7 @@
 import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { motion, AnimatePresence } from 'framer-motion'
-import { BookOpen, GitCompare } from 'lucide-react'
+import { BookOpen, GitCompare, Info } from 'lucide-react'
 import RepoCard from './RepoCard'
 import MultiRepoChatDialog from '@/components/chat/MultiRepoChatDialog'
 import { listRepos } from '@/lib/api/repos'
@@ -88,9 +88,20 @@ const RepoList = ({ initialRepos }: { initialRepos: Repo[] }) => {
         </AnimatePresence>
       </motion.div>
 
-      {selectedIds.size > 0 && selectedIds.size < 2 && (
-        <p className="mb-4 text-xs text-muted-foreground">
-          Select one more repo to compare
+      {repos.length >= 2 && selectedIds.size === 0 && (
+        <motion.p
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          className="mb-4 flex items-center gap-1.5 text-xs text-muted-foreground/60"
+        >
+          <Info className="size-3 shrink-0" />
+          Check two or more repos to compare them in a shared chat
+        </motion.p>
+      )}
+
+      {selectedIds.size === 1 && (
+        <p className="mb-4 text-xs text-muted-foreground/60">
+          Select one more repo to enable comparison
         </p>
       )}
 
