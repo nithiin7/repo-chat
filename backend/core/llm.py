@@ -117,18 +117,57 @@ def build_prompt(question: str, context_chunks: list[str]) -> str:
 
 
 # ---------------------------------------------------------------------------
+# Multi-turn context management
+# ---------------------------------------------------------------------------
+
+_HISTORY_CHAR_THRESHOLD = 6000  # ~1500 tokens; above this, compress old turns
+_HISTORY_KEEP_RECENT = 12       # always keep the most recent 12 messages verbatim
+
+_COMPRESS_PROMPT = (
+    "Summarize the following conversation concisely in 3-5 sentences, "
+    "capturing what was asked and the key answers given:\n\n{dialogue}"
+)
+
+
+async def _compress_history(
+    history: list[dict[str, str]], mode: "LLMMode"
+) -> list[dict[str, str]]:
+    """Summarize old turns when history grows too large, keeping recent ones verbatim."""
+    if (
+        sum(len(m["content"]) for m in history) <= _HISTORY_CHAR_THRESHOLD
+        or len(history) <= _HISTORY_KEEP_RECENT
+    ):
+        return history
+
+    old, recent = history[:-_HISTORY_KEEP_RECENT], history[-_HISTORY_KEEP_RECENT:]
+    dialogue = "\n".join(f"{m['role'].upper()}: {m['content']}" for m in old)
+    try:
+        summary = await _complete(
+            _COMPRESS_PROMPT.format(dialogue=dialogue[:4000]), mode
+        )
+    except Exception:
+        return recent  # fallback: drop old turns silently
+
+    return [
+        {"role": "user", "content": f"[Earlier conversation summary: {summary}]"},
+        {"role": "assistant", "content": "Understood."},
+        *recent,
+    ]
+
+
+# ---------------------------------------------------------------------------
 # Local — Ollama /api/generate
 # ---------------------------------------------------------------------------
 
 _OLLAMA_TIMEOUT = httpx.Timeout(connect=10.0, read=300.0, write=30.0, pool=5.0)
 
 
-async def stream_local(prompt: str) -> AsyncGenerator[str, None]:
+async def stream_local(messages: list[dict[str, str]]) -> AsyncGenerator[str, None]:
     settings = get_settings()
-    url = f"{settings.ollama_base_url.rstrip('/')}/api/generate"
+    url = f"{settings.ollama_base_url.rstrip('/')}/api/chat"
     payload = {
         "model": settings.ollama_model,
-        "prompt": prompt,
+        "messages": [{"role": "system", "content": _SYSTEM_PROMPT}, *messages],
         "stream": True,
     }
 
@@ -151,7 +190,7 @@ async def stream_local(prompt: str) -> AsyncGenerator[str, None]:
                     logger.warning("Ollama: non-JSON line: %s", raw_line)
                     continue
 
-                token: str = data.get("response", "")
+                token: str = data.get("message", {}).get("content", "")
                 if token:
                     yield token
 
@@ -173,7 +212,7 @@ async def stream_local(prompt: str) -> AsyncGenerator[str, None]:
 # Cloud — Anthropic Messages API
 # ---------------------------------------------------------------------------
 
-async def stream_anthropic(prompt: str) -> AsyncGenerator[str | TokenUsage, None]:
+async def stream_anthropic(messages: list[dict[str, str]]) -> AsyncGenerator[str | TokenUsage, None]:
     settings = get_settings()
 
     if not settings.anthropic_api_key:
@@ -188,7 +227,7 @@ async def stream_anthropic(prompt: str) -> AsyncGenerator[str | TokenUsage, None
             model=settings.anthropic_model,
             max_tokens=2048,
             system=_SYSTEM_PROMPT,
-            messages=[{"role": "user", "content": prompt}],
+            messages=messages,
         ) as stream:
             async for text in stream.text_stream:
                 if text:
@@ -222,7 +261,7 @@ async def stream_anthropic(prompt: str) -> AsyncGenerator[str | TokenUsage, None
 # Cloud — OpenAI (or compatible)
 # ---------------------------------------------------------------------------
 
-async def stream_openai(prompt: str) -> AsyncGenerator[str | TokenUsage, None]:
+async def stream_openai(messages: list[dict[str, str]]) -> AsyncGenerator[str | TokenUsage, None]:
     settings = get_settings()
 
     if not settings.openai_api_key:
@@ -239,10 +278,7 @@ async def stream_openai(prompt: str) -> AsyncGenerator[str | TokenUsage, None]:
         stream = await client.chat.completions.create(
             model=settings.openai_model,
             max_tokens=2048,
-            messages=[
-                {"role": "system", "content": _SYSTEM_PROMPT},
-                {"role": "user", "content": prompt},
-            ],
+            messages=[{"role": "system", "content": _SYSTEM_PROMPT}, *messages],
             stream=True,
             stream_options={"include_usage": True},
         )
@@ -284,7 +320,7 @@ async def stream_openai(prompt: str) -> AsyncGenerator[str | TokenUsage, None]:
 # Cloud — Groq (OpenAI-compatible)
 # ---------------------------------------------------------------------------
 
-async def stream_groq(prompt: str) -> AsyncGenerator[str | TokenUsage, None]:
+async def stream_groq(messages: list[dict[str, str]]) -> AsyncGenerator[str | TokenUsage, None]:
     settings = get_settings()
 
     if not settings.groq_api_key:
@@ -301,10 +337,7 @@ async def stream_groq(prompt: str) -> AsyncGenerator[str | TokenUsage, None]:
         stream = await client.chat.completions.create(
             model=settings.groq_model,
             max_tokens=2048,
-            messages=[
-                {"role": "system", "content": _SYSTEM_PROMPT},
-                {"role": "user", "content": prompt},
-            ],
+            messages=[{"role": "system", "content": _SYSTEM_PROMPT}, *messages],
             stream=True,
             stream_options={"include_usage": True},
         )
@@ -346,7 +379,7 @@ async def stream_groq(prompt: str) -> AsyncGenerator[str | TokenUsage, None]:
 # Cloud — Google Gemini (OpenAI-compatible endpoint)
 # ---------------------------------------------------------------------------
 
-async def stream_gemini(prompt: str) -> AsyncGenerator[str | TokenUsage, None]:
+async def stream_gemini(messages: list[dict[str, str]]) -> AsyncGenerator[str | TokenUsage, None]:
     settings = get_settings()
 
     if not settings.gemini_api_key:
@@ -363,10 +396,7 @@ async def stream_gemini(prompt: str) -> AsyncGenerator[str | TokenUsage, None]:
         stream = await client.chat.completions.create(
             model=settings.gemini_model,
             max_tokens=2048,
-            messages=[
-                {"role": "system", "content": _SYSTEM_PROMPT},
-                {"role": "user", "content": prompt},
-            ],
+            messages=[{"role": "system", "content": _SYSTEM_PROMPT}, *messages],
             stream=True,
             stream_options={"include_usage": True},
         )
@@ -461,32 +491,32 @@ async def stream_answer(
     question: str,
     chunks: list[str],
     mode: LLMMode,
+    history: list[dict[str, str]] | None = None,
 ) -> AsyncGenerator[str | TokenUsage, None]:
-    prompt = build_prompt(question, chunks)
+    compressed = await _compress_history(history or [], mode)
+    messages = [*compressed, {"role": "user", "content": build_prompt(question, chunks)}]
     logger.debug(
-        "stream_answer mode=%s question=%r chunks=%d",
-        mode,
-        question[:80],
-        len(chunks),
+        "stream_answer mode=%s question=%r chunks=%d history=%d",
+        mode, question[:80], len(chunks), len(history or []),
     )
 
     if mode is LLMMode.LOCAL:
-        async for token in stream_local(prompt):
+        async for token in stream_local(messages):
             yield token
     elif mode is LLMMode.CLOUD:
         settings = get_settings()
         provider = settings.cloud_provider
         if provider == "openai":
-            async for item in stream_openai(prompt):
+            async for item in stream_openai(messages):
                 yield item
         elif provider == "groq":
-            async for item in stream_groq(prompt):
+            async for item in stream_groq(messages):
                 yield item
         elif provider == "gemini":
-            async for item in stream_gemini(prompt):
+            async for item in stream_gemini(messages):
                 yield item
         else:
-            async for item in stream_anthropic(prompt):
+            async for item in stream_anthropic(messages):
                 yield item
     else:
         raise LLMError(f"Unknown LLM mode: {mode!r}")

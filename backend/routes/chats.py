@@ -38,7 +38,10 @@ async def chat(body: ChatRequest):
             detail=f"Repo '{body.repo_id}' not indexed. Call POST /index first.",
         )
 
+    history: list[dict[str, str]] = []
     if body.chat_id:
+        raw = await asyncio.to_thread(list_messages, body.chat_id)
+        history = [{"role": m["role"], "content": m["content"]} for m in raw]
         await asyncio.to_thread(save_message, body.chat_id, "user", body.question)
         await asyncio.to_thread(set_chat_title_if_default, body.chat_id, body.question)
 
@@ -59,7 +62,7 @@ async def chat(body: ChatRequest):
             yield f"event: sources\ndata: {json.dumps(source_chunks)}\n\n"
 
             text_chunks = [sc["chunk"] for sc in source_chunks]
-            async for item in stream_answer(body.question, text_chunks, body.mode):
+            async for item in stream_answer(body.question, text_chunks, body.mode, history):
                 if isinstance(item, TokenUsage):
                     yield f"event: usage\ndata: {json.dumps(item.to_dict())}\n\n"
                 else:
