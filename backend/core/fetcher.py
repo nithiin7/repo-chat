@@ -129,6 +129,7 @@ def _clone(
     provider: str,
     owner: str,
     repo_name: str,
+    branch: str | None = None,
 ) -> FetchResult:
     """
     Run git clone --depth 1 into dest.  Any existing dest is wiped first so
@@ -143,13 +144,23 @@ def _clone(
     dest.mkdir(parents=True, exist_ok=True)
 
     try:
-        cloned = git.Repo.clone_from(clone_url, str(dest), depth=1, no_single_branch=True)
+        kwargs: dict = {"depth": 1}
+        if branch:
+            kwargs["branch"] = branch
+        else:
+            kwargs["no_single_branch"] = True
+        cloned = git.Repo.clone_from(clone_url, str(dest), **kwargs)
         head_sha = cloned.head.commit.hexsha
     except GitCommandError as exc:
         # Clean up the empty dest so a retry starts fresh.
         shutil.rmtree(dest, ignore_errors=True)
 
         stderr = str(exc).lower()
+
+        if branch and "remote branch" in stderr and "not found" in stderr:
+            raise RepoFetchError(
+                f"Branch '{branch}' was not found in '{owner}/{repo_name}'."
+            ) from exc
 
         if any(kw in stderr for kw in ("repository not found", "not found", "does not exist")):
             raise RepoFetchError(
@@ -187,6 +198,7 @@ def fetch_github_repo(
     dest: Path,
     *,
     token: str | None = None,
+    branch: str | None = None,
 ) -> FetchResult:
     """Clone a GitHub repository, injecting a token when available.
 
@@ -207,10 +219,17 @@ def fetch_github_repo(
         provider="github",
         owner=owner,
         repo_name=repo_name,
+        branch=branch,
     )
 
 
-def fetch_bitbucket_repo(owner: str, repo_name: str, dest: Path) -> FetchResult:
+def fetch_bitbucket_repo(
+    owner: str,
+    repo_name: str,
+    dest: Path,
+    *,
+    branch: str | None = None,
+) -> FetchResult:
     """Clone a Bitbucket repository using an app password when available."""
     settings = get_settings()
     username = settings.bitbucket_username
@@ -232,12 +251,18 @@ def fetch_bitbucket_repo(owner: str, repo_name: str, dest: Path) -> FetchResult:
         provider="bitbucket",
         owner=owner,
         repo_name=repo_name,
+        branch=branch,
     )
 
 
 # ----- public entry point ---------------------------------------------------
 
-def fetch_repo(repo_url: str, *, github_token: str | None = None) -> FetchResult:
+def fetch_repo(
+    repo_url: str,
+    *,
+    github_token: str | None = None,
+    branch: str | None = None,
+) -> FetchResult:
     """
     Parse repo_url, clone the repository to <repos_dir>/<repo-name> at depth 1,
     and return a FetchResult containing:
@@ -246,6 +271,7 @@ def fetch_repo(repo_url: str, *, github_token: str | None = None) -> FetchResult
 
     Raises RepoFetchError for any URL, network, or authentication problem.
     github_token overrides the GITHUB_TOKEN env var for this call only.
+    branch pins the clone to a specific branch; defaults to the remote HEAD.
     """
     parsed = parse_repo_url(repo_url)
     provider: str = parsed["provider"]
@@ -257,17 +283,16 @@ def fetch_repo(repo_url: str, *, github_token: str | None = None) -> FetchResult
     dest = repos_dir / repo_name
 
     if provider == "github":
-        return fetch_github_repo(owner, repo_name, dest, token=github_token)
-    return fetch_bitbucket_repo(owner, repo_name, dest)
+        return fetch_github_repo(owner, repo_name, dest, token=github_token, branch=branch)
+    return fetch_bitbucket_repo(owner, repo_name, dest, branch=branch)
 
 
 # ----- remote HEAD commit check ---------------------------------------------
 
-def get_remote_head(repo_url: str) -> str | None:
+def get_remote_head(repo_url: str, branch: str | None = None) -> str | None:
     """
-    Return the current HEAD commit SHA of the remote repo without cloning.
-    Uses `git ls-remote` with the same auth-injected URL used for cloning.
-    Returns None if the check fails for any reason.
+    Return the current HEAD commit SHA of the remote repo (or a specific branch)
+    without cloning. Uses `git ls-remote`. Returns None if the check fails.
     """
     try:
         parsed = parse_repo_url(repo_url)
@@ -296,9 +321,11 @@ def get_remote_head(repo_url: str) -> str | None:
         else:
             clone_url = f"https://bitbucket.org/{owner}/{repo_name}.git"
 
+    ref = f"refs/heads/{branch}" if branch else "HEAD"
+
     try:
         output = git.cmd.Git().execute(
-            ["git", "ls-remote", clone_url, "HEAD"],
+            ["git", "ls-remote", clone_url, ref],
             with_extended_output=False,
         )
         if output:

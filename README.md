@@ -19,6 +19,7 @@ Paste a repo URL. CodeLens clones it, indexes every source file into a vector st
 - **Multi-repo dashboard** — browse, switch between, and delete all indexed repos from one place
 - **Configurable embeddings** — uses `BAAI/bge-small-en-v1.5` locally by default; swap the model from settings
 - **Private repo support** — paste a GitHub personal access token directly in the UI to index private repos; no env-var setup needed (token is sent per-request, never stored). Bitbucket private repos work via `BITBUCKET_USERNAME` / `BITBUCKET_APP_PASSWORD` in `.env`
+- **Branch selection** — optionally pin indexing to a specific branch (e.g. `develop`, `feature/x`) via the "Specific branch?" toggle in the UI; defaults to the remote HEAD. The indexed branch is shown on the repo card and used for update checks
 - **Semantic code search** — search across the entire repo by intent, not keywords; results are ranked by embedding similarity with no LLM involved
 - **Symbol navigator** — browse every function, class, and method extracted via AST parsing (Python `ast` module; regex for JS/TS/Go/Java); filter by kind, expand definitions inline, and jump to chat from any result
 - **Dependency map** — visualize module-level import relationships as an interactive force-directed graph; click any file node to see what it imports and what imports it, with color-coding by language

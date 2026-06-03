@@ -3,7 +3,7 @@
 import { useRouter } from 'next/navigation'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { motion } from 'framer-motion'
-import { GitFork, MessageSquare, Trash2, Loader2, FileCode2, Clock, RefreshCw, Search } from 'lucide-react'
+import { GitBranch, GitFork, MessageSquare, Trash2, Loader2, FileCode2, Clock, RefreshCw, Search } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { checkRepoStatus, deleteRepo, indexRepo } from '@/lib/api/repos'
 import { queryKeys } from '@/lib/api/queryKeys'
@@ -105,7 +105,7 @@ const RepoCard = ({ repo, index = 0 }: { repo: Repo; index?: number }) => {
       )}
 
       {/* Stats */}
-      <div className="flex items-center gap-3 text-xs text-muted-foreground">
+      <div className="flex flex-wrap items-center gap-3 text-xs text-muted-foreground">
         <span className="flex items-center gap-1.5">
           <FileCode2 className="size-3.5" />
           {repo.file_count.toLocaleString()} files
@@ -115,6 +115,15 @@ const RepoCard = ({ repo, index = 0 }: { repo: Repo; index?: number }) => {
           <Clock className="size-3.5" />
           {indexedAt}
         </span>
+        {repo.branch && (
+          <>
+            <span className="opacity-30">·</span>
+            <span className="flex items-center gap-1 font-mono text-indigo-400">
+              <GitBranch className="size-3.5" />
+              {repo.branch}
+            </span>
+          </>
+        )}
       </div>
 
       {/* CTA */}

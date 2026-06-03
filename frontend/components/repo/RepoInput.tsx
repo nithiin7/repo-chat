@@ -3,7 +3,7 @@
 import { useRef, useState } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
 import { AnimatePresence, motion } from 'framer-motion'
-import { AlertCircle, ArrowRight, CheckCircle2, FileCode2, Link2, Loader2, Lock } from 'lucide-react'
+import { AlertCircle, ArrowRight, CheckCircle2, FileCode2, GitBranch, Link2, Loader2, Lock } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { indexRepoStream } from '@/lib/api/repos'
 import { queryKeys } from '@/lib/api/queryKeys'
@@ -23,6 +23,8 @@ const RepoInput = () => {
   const [url, setUrl] = useState('')
   const [token, setToken] = useState('')
   const [showToken, setShowToken] = useState(false)
+  const [branch, setBranch] = useState('')
+  const [showBranch, setShowBranch] = useState(false)
   const [status, setStatus] = useState<Status>('idle')
   const [progress, setProgress] = useState<Progress | null>(null)
   const [feedback, setFeedback] = useState<{ message: string; sub?: string; variant: 'success' | 'error' } | null>(null)
@@ -41,8 +43,15 @@ const RepoInput = () => {
     setProgress({ phase: 'cloning' })
 
     try {
+      const trimmedBranch = branch.trim() || undefined
       const stream = indexRepoStream(
-        { repo_url: trimmed, github_token: token.trim() || undefined },
+        {
+          repo_url: trimmed,
+          github_token: token.trim() || undefined,
+          branch: trimmedBranch,
+          // force re-index when a specific branch is given
+          force: trimmedBranch ? true : undefined,
+        },
         abort.signal,
       )
 
@@ -156,8 +165,8 @@ const RepoInput = () => {
           </Button>
         </div>
 
-        {/* Private repo token toggle */}
-        <div className="mt-2 pl-1">
+        {/* Toggles row */}
+        <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 pl-1">
           <button
             type="button"
             onClick={() => setShowToken((v) => !v)}
@@ -165,6 +174,19 @@ const RepoInput = () => {
           >
             <Lock className="size-3" />
             {showToken ? 'Hide token' : 'Private repo? Add a GitHub token'}
+          </button>
+          <button
+            type="button"
+            onClick={() => setShowBranch((v) => !v)}
+            className={cn(
+              'flex items-center gap-1.5 text-xs transition-colors',
+              branch.trim()
+                ? 'text-indigo-400 hover:text-indigo-300'
+                : 'text-muted-foreground hover:text-foreground',
+            )}
+          >
+            <GitBranch className="size-3" />
+            {branch.trim() ? `Branch: ${branch.trim()}` : 'Specific branch?'}
           </button>
         </div>
 
@@ -191,6 +213,35 @@ const RepoInput = () => {
               </div>
               <p className="mt-1 pl-1 text-xs text-muted-foreground/70">
                 Token is sent only for this request and never stored.
+              </p>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+        <AnimatePresence>
+          {showBranch && (
+            <motion.div
+              initial={{ opacity: 0, height: 0 }}
+              animate={{ opacity: 1, height: 'auto' }}
+              exit={{ opacity: 0, height: 0 }}
+              transition={{ duration: 0.15, ease: 'easeOut' }}
+              className="overflow-hidden"
+            >
+              <div className="mt-2 flex items-center gap-2 rounded-lg border border-border bg-muted/40 px-3 py-1.5">
+                <GitBranch className="size-3.5 shrink-0 text-muted-foreground" />
+                <input
+                  type="text"
+                  value={branch}
+                  onChange={(e) => setBranch(e.target.value)}
+                  placeholder="Branch name (e.g. main, develop, feature/x)"
+                  disabled={status === 'indexing'}
+                  spellCheck={false}
+                  autoComplete="off"
+                  className="min-w-0 flex-1 bg-transparent text-xs text-foreground placeholder:text-muted-foreground outline-none disabled:opacity-60 font-mono"
+                />
+              </div>
+              <p className="mt-1 pl-1 text-xs text-muted-foreground/70">
+                Leave blank to use the default branch.
               </p>
             </motion.div>
           )}

@@ -8,6 +8,7 @@ import {
   MessageSquare,
   Cpu,
   Cloud,
+  GitBranch,
   GitFork,
   Zap,
   Database,
@@ -33,6 +34,12 @@ const FEATURES = [
     title: 'GitHub & Bitbucket support',
     description:
       'Paste any public or private repo URL. For private GitHub repos, expand the token field and paste your PAT — no env setup needed.',
+  },
+  {
+    icon: <GitBranch className="size-5 text-indigo-400" />,
+    title: 'Branch selection',
+    description:
+      'Pin indexing to any branch — develop, a feature branch, a release tag. Leave it blank to use the default. The active branch is shown on the repo card and tracked for update checks.',
   },
   {
     icon: <Cpu className="size-5 text-emerald-400" />,

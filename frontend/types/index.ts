@@ -5,6 +5,7 @@ export interface Repo {
   indexed_at: string;
   file_count: number;
   last_indexed_commit?: string;
+  branch?: string;
 }
 
 export interface RepoStatus {
@@ -18,6 +19,7 @@ export interface IndexRequest {
   repo_url: string;
   force?: boolean;
   github_token?: string;
+  branch?: string;
 }
 
 export interface IndexResponse {

@@ -11,6 +11,7 @@ def upsert_repo(
     indexed_at: str,
     file_count: int,
     last_indexed_commit: str | None = None,
+    branch: str | None = None,
 ) -> dict:
     with Session(_get_engine()) as session:
         repo = session.get(Repo, repo_id)
@@ -22,6 +23,7 @@ def upsert_repo(
                 indexed_at=indexed_at,
                 file_count=file_count,
                 last_indexed_commit=last_indexed_commit,
+                branch=branch,
             )
         else:
             repo.name = name
@@ -29,6 +31,7 @@ def upsert_repo(
             repo.indexed_at = indexed_at
             repo.file_count = file_count
             repo.last_indexed_commit = last_indexed_commit
+            repo.branch = branch
         session.add(repo)
         session.commit()
         session.refresh(repo)

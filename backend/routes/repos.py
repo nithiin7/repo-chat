@@ -71,7 +71,7 @@ async def index_repo(body: IndexRequest):
 
     try:
         result: FetchResult = await asyncio.to_thread(
-            fetch_repo, url, github_token=body.github_token
+            fetch_repo, url, github_token=body.github_token, branch=body.branch
         )
     except RepoFetchError as exc:
         raise HTTPException(status_code=422, detail=str(exc))
@@ -89,6 +89,7 @@ async def index_repo(body: IndexRequest):
         datetime.now(timezone.utc).isoformat(),
         len(result.file_paths),
         result.head_commit or None,
+        body.branch,
     )
 
     return IndexResponse(
@@ -130,7 +131,7 @@ async def index_repo_stream(body: IndexRequest):
 
                 try:
                     result: FetchResult = await asyncio.to_thread(
-                        fetch_repo, url, github_token=body.github_token
+                        fetch_repo, url, github_token=body.github_token, branch=body.branch
                     )
                 except RepoFetchError as exc:
                     await queue.put({"type": "error", "message": str(exc)})
@@ -152,6 +153,7 @@ async def index_repo_stream(body: IndexRequest):
                     datetime.now(timezone.utc).isoformat(),
                     len(result.file_paths),
                     result.head_commit or None,
+                    body.branch,
                 )
 
                 await queue.put({
@@ -212,8 +214,9 @@ async def repo_status(repo_id: str):
 
     indexed_commit: str | None = existing.get("last_indexed_commit")
     url: str = existing["url"]
+    branch: str | None = existing.get("branch")
 
-    remote_commit = await asyncio.to_thread(get_remote_head, url)
+    remote_commit = await asyncio.to_thread(get_remote_head, url, branch)
 
     has_updates = bool(indexed_commit and remote_commit and indexed_commit != remote_commit)
 

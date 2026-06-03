@@ -41,3 +41,7 @@ def init_db() -> None:
         if "is_pinned" not in cols:
             conn.execute(text("ALTER TABLE chats ADD COLUMN is_pinned INTEGER NOT NULL DEFAULT 0"))
             conn.commit()
+        repo_cols = {row[1] for row in conn.execute(text("PRAGMA table_info(repos)"))}
+        if "branch" not in repo_cols:
+            conn.execute(text("ALTER TABLE repos ADD COLUMN branch TEXT"))
+            conn.commit()
