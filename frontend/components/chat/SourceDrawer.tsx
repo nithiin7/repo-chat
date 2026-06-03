@@ -276,6 +276,11 @@ const SourceDrawer = ({ sources, repoUrl, open, onOpenChange }: SourceDrawerProp
                               {dir && <span className="text-muted-foreground">{dir}</span>}
                               <span className="font-medium text-foreground">{filename}</span>
                             </span>
+                            {s.repo_name && (
+                              <span className="shrink-0 rounded-full bg-indigo-500/10 px-1.5 py-0.5 font-mono text-[9px] font-semibold text-indigo-400">
+                                {s.repo_name}
+                              </span>
+                            )}
                           </div>
                           <span className={cn('rounded-full px-2 py-0.5 text-[10px] font-semibold tabular-nums', color)}>
                             {pct}%

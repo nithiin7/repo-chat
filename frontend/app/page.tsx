@@ -9,6 +9,7 @@ import {
   Cpu,
   Cloud,
   GitBranch,
+  GitCompare,
   GitFork,
   GitPullRequest,
   Zap,
@@ -101,6 +102,12 @@ const FEATURES = [
     title: 'PR & diff analysis',
     description:
       'Paste a GitHub or Bitbucket PR URL, a commit URL, or a raw SHA to load the diff as chat context. Ask "what does this PR change?" or "are there any risks?" — the LLM answers against both the diff and the full codebase index.',
+  },
+  {
+    icon: <GitCompare className="size-5 text-indigo-400" />,
+    title: 'Cross-repo comparison',
+    description:
+      'Select two or more indexed repos from the dashboard and open a shared chat. Ask comparative questions like "How does auth differ between these repos?" — the LLM retrieves context from all selected repos and answers with repo-labeled evidence.',
   },
 ]
 

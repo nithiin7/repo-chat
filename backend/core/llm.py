@@ -101,6 +101,17 @@ _SYSTEM_PROMPT = (
     "If the answer cannot be determined from the excerpts, say so."
 )
 
+_MULTI_REPO_SYSTEM_PROMPT = (
+    "You are an expert code analyst comparing multiple repositories. "
+    "The code excerpts below are grouped by repository under '=== Repository: name ===' headers. "
+    "Analyze the patterns, conventions, structure, and approaches visible in each repository's excerpts. "
+    "Answer comparative questions directly — name which repo does something better or differently and why, "
+    "citing specific file paths, function names, or code patterns as evidence. "
+    "Draw reasonable inferences about the overall codebase from the samples provided. "
+    "If a specific aspect cannot be determined from the available excerpts, say so clearly "
+    "but still compare what is visible."
+)
+
 _NO_CONTEXT_MSG = "No relevant code excerpts were found for this question."
 
 
@@ -171,12 +182,12 @@ async def _compress_history(
 _OLLAMA_TIMEOUT = httpx.Timeout(connect=10.0, read=300.0, write=30.0, pool=5.0)
 
 
-async def stream_local(messages: list[dict[str, str]]) -> AsyncGenerator[str, None]:
+async def stream_local(messages: list[dict[str, str]], system: str = _SYSTEM_PROMPT) -> AsyncGenerator[str, None]:
     settings = get_settings()
     url = f"{settings.ollama_base_url.rstrip('/')}/api/chat"
     payload = {
         "model": settings.ollama_model,
-        "messages": [{"role": "system", "content": _SYSTEM_PROMPT}, *messages],
+        "messages": [{"role": "system", "content": system}, *messages],
         "stream": True,
     }
 
@@ -221,7 +232,7 @@ async def stream_local(messages: list[dict[str, str]]) -> AsyncGenerator[str, No
 # Cloud — Anthropic Messages API
 # ---------------------------------------------------------------------------
 
-async def stream_anthropic(messages: list[dict[str, str]]) -> AsyncGenerator[str | TokenUsage, None]:
+async def stream_anthropic(messages: list[dict[str, str]], system: str = _SYSTEM_PROMPT) -> AsyncGenerator[str | TokenUsage, None]:
     settings = get_settings()
 
     if not settings.anthropic_api_key:
@@ -235,7 +246,7 @@ async def stream_anthropic(messages: list[dict[str, str]]) -> AsyncGenerator[str
         async with client.messages.stream(
             model=settings.anthropic_model,
             max_tokens=2048,
-            system=_SYSTEM_PROMPT,
+            system=system,
             messages=messages,
         ) as stream:
             async for text in stream.text_stream:
@@ -270,7 +281,7 @@ async def stream_anthropic(messages: list[dict[str, str]]) -> AsyncGenerator[str
 # Cloud — OpenAI (or compatible)
 # ---------------------------------------------------------------------------
 
-async def stream_openai(messages: list[dict[str, str]]) -> AsyncGenerator[str | TokenUsage, None]:
+async def stream_openai(messages: list[dict[str, str]], system: str = _SYSTEM_PROMPT) -> AsyncGenerator[str | TokenUsage, None]:
     settings = get_settings()
 
     if not settings.openai_api_key:
@@ -287,7 +298,7 @@ async def stream_openai(messages: list[dict[str, str]]) -> AsyncGenerator[str | 
         stream = await client.chat.completions.create(
             model=settings.openai_model,
             max_tokens=2048,
-            messages=[{"role": "system", "content": _SYSTEM_PROMPT}, *messages],
+            messages=[{"role": "system", "content": system}, *messages],
             stream=True,
             stream_options={"include_usage": True},
         )
@@ -329,7 +340,7 @@ async def stream_openai(messages: list[dict[str, str]]) -> AsyncGenerator[str | 
 # Cloud — Groq (OpenAI-compatible)
 # ---------------------------------------------------------------------------
 
-async def stream_groq(messages: list[dict[str, str]]) -> AsyncGenerator[str | TokenUsage, None]:
+async def stream_groq(messages: list[dict[str, str]], system: str = _SYSTEM_PROMPT) -> AsyncGenerator[str | TokenUsage, None]:
     settings = get_settings()
 
     if not settings.groq_api_key:
@@ -346,7 +357,7 @@ async def stream_groq(messages: list[dict[str, str]]) -> AsyncGenerator[str | To
         stream = await client.chat.completions.create(
             model=settings.groq_model,
             max_tokens=2048,
-            messages=[{"role": "system", "content": _SYSTEM_PROMPT}, *messages],
+            messages=[{"role": "system", "content": system}, *messages],
             stream=True,
             stream_options={"include_usage": True},
         )
@@ -388,7 +399,7 @@ async def stream_groq(messages: list[dict[str, str]]) -> AsyncGenerator[str | To
 # Cloud — Google Gemini (OpenAI-compatible endpoint)
 # ---------------------------------------------------------------------------
 
-async def stream_gemini(messages: list[dict[str, str]]) -> AsyncGenerator[str | TokenUsage, None]:
+async def stream_gemini(messages: list[dict[str, str]], system: str = _SYSTEM_PROMPT) -> AsyncGenerator[str | TokenUsage, None]:
     settings = get_settings()
 
     if not settings.gemini_api_key:
@@ -405,7 +416,7 @@ async def stream_gemini(messages: list[dict[str, str]]) -> AsyncGenerator[str | 
         stream = await client.chat.completions.create(
             model=settings.gemini_model,
             max_tokens=2048,
-            messages=[{"role": "system", "content": _SYSTEM_PROMPT}, *messages],
+            messages=[{"role": "system", "content": system}, *messages],
             stream=True,
             stream_options={"include_usage": True},
         )
@@ -502,7 +513,9 @@ async def stream_answer(
     mode: LLMMode,
     history: list[dict[str, str]] | None = None,
     diff_context: str | None = None,
+    system_prompt: str | None = None,
 ) -> AsyncGenerator[str | TokenUsage, None]:
+    system = system_prompt or _SYSTEM_PROMPT
     compressed = await _compress_history(history or [], mode)
     messages = [*compressed, {"role": "user", "content": build_prompt(question, chunks, diff_context)}]
     logger.debug(
@@ -511,22 +524,22 @@ async def stream_answer(
     )
 
     if mode is LLMMode.LOCAL:
-        async for token in stream_local(messages):
+        async for token in stream_local(messages, system=system):
             yield token
     elif mode is LLMMode.CLOUD:
         settings = get_settings()
         provider = settings.cloud_provider
         if provider == "openai":
-            async for item in stream_openai(messages):
+            async for item in stream_openai(messages, system=system):
                 yield item
         elif provider == "groq":
-            async for item in stream_groq(messages):
+            async for item in stream_groq(messages, system=system):
                 yield item
         elif provider == "gemini":
-            async for item in stream_gemini(messages):
+            async for item in stream_gemini(messages, system=system):
                 yield item
         else:
-            async for item in stream_anthropic(messages):
+            async for item in stream_anthropic(messages, system=system):
                 yield item
     else:
         raise LLMError(f"Unknown LLM mode: {mode!r}")

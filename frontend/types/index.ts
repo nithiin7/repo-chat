@@ -43,7 +43,8 @@ export type SyncProgressEvent =
   | { type: 'error'; message: string }
 
 export interface ChatRequest {
-  repo_id: string;
+  repo_id?: string;
+  repo_ids?: string[];
   question: string;
   mode: "local" | "cloud";
   chat_id?: string;
@@ -82,6 +83,8 @@ export interface SourceChunk {
   file_path: string;
   chunk: string;
   score: number;
+  repo_id?: string;
+  repo_name?: string;
 }
 
 export interface TokenUsage {

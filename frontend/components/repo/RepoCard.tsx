@@ -10,7 +10,17 @@ import { queryKeys } from '@/lib/api/queryKeys'
 import { cn } from '@/lib/utils'
 import type { Repo } from '@/types'
 
-const RepoCard = ({ repo, index = 0 }: { repo: Repo; index?: number }) => {
+const RepoCard = ({
+  repo,
+  index = 0,
+  selected = false,
+  onToggleSelect,
+}: {
+  repo: Repo
+  index?: number
+  selected?: boolean
+  onToggleSelect?: (id: string) => void
+}) => {
   const router = useRouter()
   const queryClient = useQueryClient()
 
@@ -58,9 +68,30 @@ const RepoCard = ({ repo, index = 0 }: { repo: Repo; index?: number }) => {
         'group relative flex flex-col gap-4 rounded-xl border border-border bg-card p-5',
         'transition-[border-color,background-color,box-shadow] duration-200 hover:border-indigo-500/30 hover:bg-card/80 hover:shadow-lg hover:shadow-indigo-500/5',
         hasUpdates && 'border-amber-500/30',
+        selected && 'border-indigo-500/60 ring-1 ring-indigo-500/30',
         (deleting || reindexing || syncing) && 'pointer-events-none opacity-40',
       )}
     >
+      {/* Compare checkbox */}
+      {onToggleSelect && (
+        <button
+          onClick={(e) => { e.stopPropagation(); onToggleSelect(repo.repo_id) }}
+          aria-label={selected ? 'Deselect for comparison' : 'Select for comparison'}
+          className={cn(
+            'absolute left-3 top-3 flex size-5 cursor-pointer items-center justify-center rounded border transition-all duration-150',
+            selected
+              ? 'border-indigo-500 bg-indigo-500 text-white'
+              : 'border-border bg-background opacity-0 group-hover:opacity-100',
+          )}
+        >
+          {selected && (
+            <svg className="size-3 stroke-current" viewBox="0 0 12 12" fill="none" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M2 6l3 3 5-5" />
+            </svg>
+          )}
+        </button>
+      )}
+
       {/* Action buttons — visible on hover */}
       <div className="absolute right-3 top-3 flex items-center gap-1 opacity-0 transition-opacity duration-150 group-hover:opacity-100">
         <button

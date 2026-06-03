@@ -21,7 +21,8 @@ class IndexResponse(BaseModel):
 
 
 class ChatRequest(BaseModel):
-    repo_id: str
+    repo_id: str | None = None
+    repo_ids: list[str] | None = None
     question: str
     mode: LLMMode = LLMMode.LOCAL
     chat_id: str | None = None

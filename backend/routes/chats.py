@@ -8,7 +8,7 @@ from fastapi.responses import StreamingResponse
 
 from backend.config import get_settings
 from backend.core.diff_fetcher import format_diff_for_prompt
-from backend.core.llm import LLMError, TokenUsage, generate_suggestions, stream_answer
+from backend.core.llm import LLMError, TokenUsage, _MULTI_REPO_SYSTEM_PROMPT, generate_suggestions, stream_answer
 from backend.core.hybrid_retriever import hybrid_retrieve
 from backend.core.reranker import get_reranker
 from backend.core.retriever import SourceChunk
@@ -31,24 +31,63 @@ logger = logging.getLogger(__name__)
 router = APIRouter()
 
 
+def _build_multi_repo_context(
+    all_chunks: list[SourceChunk],
+    repo_ids: list[str],
+    repo_names: dict[str, str],
+) -> list[str]:
+    """Group retrieved chunks by repo into labeled context strings for the LLM."""
+    by_repo: dict[str, list[str]] = {rid: [] for rid in repo_ids}
+    for chunk in all_chunks:
+        rid = chunk.get("repo_id", repo_ids[0])  # type: ignore[arg-type]
+        if rid in by_repo:
+            by_repo[rid].append(chunk["chunk"])
+    result = []
+    for rid in repo_ids:
+        chunks = by_repo.get(rid, [])
+        if chunks:
+            name = repo_names.get(rid, rid)
+            block = f"=== Repository: {name} ===\n\n" + "\n\n---\n\n".join(chunks)
+            result.append(block)
+    return result
+
+
 @router.post("/chat")
 async def chat(body: ChatRequest):
-    repo = await asyncio.to_thread(get_repo, body.repo_id)
-    if not repo:
-        raise HTTPException(
-            status_code=404,
-            detail=f"Repo '{body.repo_id}' not indexed. Call POST /index first.",
+    is_multi_repo = bool(body.repo_ids and len(body.repo_ids) >= 2)
+
+    if is_multi_repo:
+        repos_data = await asyncio.gather(
+            *[asyncio.to_thread(get_repo, rid) for rid in body.repo_ids]  # type: ignore[union-attr]
         )
+        missing = [body.repo_ids[i] for i, r in enumerate(repos_data) if not r]  # type: ignore[index]
+        if missing:
+            raise HTTPException(
+                status_code=404,
+                detail=f"Repos not indexed: {', '.join(missing)}. Call POST /index first.",
+            )
+        repo_names: dict[str, str] = {
+            r["repo_id"]: (r["name"] or r["repo_id"]) for r in repos_data if r
+        }
+    else:
+        if not body.repo_id:
+            raise HTTPException(status_code=400, detail="Either repo_id or repo_ids (2+) must be provided.")
+        repo = await asyncio.to_thread(get_repo, body.repo_id)
+        if not repo:
+            raise HTTPException(
+                status_code=404,
+                detail=f"Repo '{body.repo_id}' not indexed. Call POST /index first.",
+            )
 
     history: list[dict[str, str]] = []
-    if body.chat_id:
+    if body.chat_id and not is_multi_repo:
         raw = await asyncio.to_thread(list_messages, body.chat_id)
         history = [{"role": m["role"], "content": m["content"]} for m in raw]
         await asyncio.to_thread(save_message, body.chat_id, "user", body.question)
         await asyncio.to_thread(set_chat_title_if_default, body.chat_id, body.question)
 
     diff_context: str | None = None
-    if body.diff_id:
+    if body.diff_id and not is_multi_repo:
         diff = await asyncio.to_thread(get_diff, body.diff_id)
         if diff:
             diff_context = format_diff_for_prompt(diff)
@@ -57,20 +96,40 @@ async def chat(body: ChatRequest):
         accumulated: list[str] = []
         saved_sources: list | None = None
         had_error = False
+        repo_id_for_log = ",".join(body.repo_ids) if is_multi_repo else body.repo_id
         try:
-            source_chunks: list[SourceChunk] = await asyncio.to_thread(
-                hybrid_retrieve, body.repo_id, body.question, 5, body.scope_paths
-            )
-            if get_settings().use_reranker:
-                source_chunks = await asyncio.to_thread(
-                    get_reranker().rerank, body.question, source_chunks
+            if is_multi_repo:
+                retrieve_results = await asyncio.gather(
+                    *[
+                        asyncio.to_thread(hybrid_retrieve, rid, body.question, 4, None)
+                        for rid in body.repo_ids  # type: ignore[union-attr]
+                    ]
                 )
-            saved_sources = source_chunks
+                source_chunks: list[SourceChunk] = []
+                for rid, chunks in zip(body.repo_ids, retrieve_results):  # type: ignore[union-attr]
+                    for chunk in chunks:
+                        tagged = dict(chunk)
+                        tagged["repo_id"] = rid
+                        tagged["repo_name"] = repo_names.get(rid, rid)
+                        source_chunks.append(tagged)  # type: ignore[arg-type]
+                text_chunks = _build_multi_repo_context(source_chunks, body.repo_ids, repo_names)  # type: ignore[arg-type]
+            else:
+                source_chunks = await asyncio.to_thread(
+                    hybrid_retrieve, body.repo_id, body.question, 5, body.scope_paths  # type: ignore[arg-type]
+                )
+                if get_settings().use_reranker:
+                    source_chunks = await asyncio.to_thread(
+                        get_reranker().rerank, body.question, source_chunks
+                    )
+                text_chunks = [sc["chunk"] for sc in source_chunks]
 
+            saved_sources = source_chunks
             yield f"event: sources\ndata: {json.dumps(source_chunks)}\n\n"
 
-            text_chunks = [sc["chunk"] for sc in source_chunks]
-            async for item in stream_answer(body.question, text_chunks, body.mode, history, diff_context):
+            async for item in stream_answer(
+                body.question, text_chunks, body.mode, history, diff_context,
+                system_prompt=_MULTI_REPO_SYSTEM_PROMPT if is_multi_repo else None,
+            ):
                 if isinstance(item, TokenUsage):
                     yield f"event: usage\ndata: {json.dumps(item.to_dict())}\n\n"
                 else:
@@ -79,14 +138,14 @@ async def chat(body: ChatRequest):
 
         except LLMError as exc:
             had_error = True
-            logger.warning("LLM error for repo '%s': %s", body.repo_id, exc)
+            logger.warning("LLM error for repo '%s': %s", repo_id_for_log, exc)
             yield f"data: [ERROR] {exc}\n\n"
         except Exception:
             had_error = True
-            logger.exception("Unexpected error in /chat for repo '%s'", body.repo_id)
+            logger.exception("Unexpected error in /chat for repo '%s'", repo_id_for_log)
             yield f"data: [ERROR] Internal server error.\n\n"
         finally:
-            if body.chat_id and accumulated:
+            if body.chat_id and not is_multi_repo and accumulated:
                 full_response = "".join(accumulated)
                 await asyncio.to_thread(
                     save_message,

@@ -27,6 +27,7 @@ Paste a repo URL. CodeLens clones it, indexes every source file into a vector st
 - **Streaming chat history** — each chat session retains message history so you can ask follow-up questions
 - **Code block actions** — hover any code block in a chat response to copy it to the clipboard; source file references include a direct link to the file in GitHub, Bitbucket, or GitLab
 - **PR & diff analysis** — paste a GitHub/Bitbucket PR URL, a commit URL, or a raw SHA into the chat header to load the diff as context; ask "what does this PR change?" or "are there any risks?" — the LLM answers against both the diff and the full codebase index
+- **Cross-repo comparison** — select two or more indexed repos from the dashboard and open a shared chat; ask comparative questions like "How does auth differ between these repos?" or "Which has better test coverage patterns?" — the LLM retrieves context from all selected repos in parallel and answers with repo-labeled evidence
 
 ---
 
