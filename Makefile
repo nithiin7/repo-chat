@@ -1,7 +1,7 @@
 BACKEND_DIR := backend
 FRONTEND_DIR := frontend
 
-.PHONY: backend frontend install lint format docker
+.PHONY: backend frontend install lint format test docker
 
 backend:
 	cd $(BACKEND_DIR) && uvicorn main:app --reload --host 0.0.0.0 --port 8000
@@ -18,6 +18,9 @@ lint:
 
 format:
 	cd $(BACKEND_DIR) && ruff format .
+
+test:
+	cd $(BACKEND_DIR) && pip install -q pytest pytest-mock httpx && pytest -v
 
 docker:
 	docker compose up --build
