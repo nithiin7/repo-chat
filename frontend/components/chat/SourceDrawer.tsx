@@ -306,12 +306,12 @@ const SourceDrawer = ({ sources, repoUrl, open, onOpenChange }: SourceDrawerProp
                           </span>
                         </button>
 
-                        <div className="relative">
+                        <div>
                           <pre className="text-foreground/80 max-h-60 overflow-auto p-4 text-xs leading-relaxed">
                             <code className="font-mono">{s.chunk}</code>
                           </pre>
 
-                          <div className="absolute top-2 right-2 flex items-center gap-1 opacity-0 transition-opacity group-hover:opacity-100">
+                          <div className="border-border flex items-center justify-end gap-1 border-t px-2 py-1.5 opacity-0 transition-opacity group-hover:opacity-100">
                             {fileUrl && (
                               <a
                                 href={fileUrl}
