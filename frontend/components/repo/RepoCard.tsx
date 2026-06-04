@@ -2,7 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { motion } from "framer-motion";
+import { motion, AnimatePresence } from "framer-motion";
 import {
   GitBranch,
   GitFork,
@@ -13,8 +13,12 @@ import {
   Clock,
   RefreshCw,
   Search,
+  ListTree,
+  Share2,
+  ArrowRight,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Tip } from "@/components/ui/tooltip";
 import { checkRepoStatus, deleteRepo, indexRepo, syncRepo } from "@/lib/api/repos";
 import { queryKeys } from "@/lib/api/queryKeys";
 import { cn } from "@/lib/utils";
@@ -166,12 +170,22 @@ const RepoCard = ({
       </div>
 
       {/* Updates badge */}
-      {hasUpdates && (
-        <div className="flex items-center gap-1.5 rounded-md bg-amber-500/10 px-2.5 py-1.5 text-xs font-medium text-amber-400">
-          <RefreshCw className="size-3" />
-          New commits available — sync to update
-        </div>
-      )}
+      <AnimatePresence initial={false}>
+        {hasUpdates && (
+          <motion.div
+            initial={{ opacity: 0, height: 0 }}
+            animate={{ opacity: 1, height: "auto" }}
+            exit={{ opacity: 0, height: 0 }}
+            transition={{ duration: 0.2, ease: "easeOut" }}
+            className="overflow-hidden"
+          >
+            <div className="flex items-center gap-1.5 rounded-md bg-amber-500/10 px-2.5 py-1.5 text-xs font-medium text-amber-400">
+              <RefreshCw className="size-3" />
+              New commits available — sync to update
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* Stats */}
       <div className="text-muted-foreground flex flex-wrap items-center gap-3 text-xs">
@@ -196,52 +210,90 @@ const RepoCard = ({
       </div>
 
       {/* CTA */}
-      {hasUpdates ? (
-        <div className="mt-auto flex gap-2">
-          <Button
-            onClick={() => handleSync()}
-            disabled={syncing}
-            size="sm"
-            variant="outline"
-            className="flex-1 gap-2 border-amber-500/30 text-amber-400 hover:bg-amber-500/10 hover:text-amber-300"
-          >
-            {syncing ? (
-              <Loader2 className="size-3.5 animate-spin" />
-            ) : (
-              <RefreshCw className="size-3.5" />
-            )}
-            {syncing ? "Syncing…" : "Sync"}
-          </Button>
-          <Button
-            onClick={() => router.push(`/chat/${repo.repo_id}`)}
-            size="sm"
-            className="flex-1 gap-2"
-          >
-            <MessageSquare className="size-3.5" />
-            Open Chat
-          </Button>
+      <div className="mt-auto flex items-center justify-between gap-3">
+        {/* Secondary feature links */}
+        <div className="flex items-center gap-0.5">
+          <Tip label="Semantic search" side="top" delay={300}>
+            <button
+              onClick={() => router.push(`/search/${repo.repo_id}`)}
+              className="text-muted-foreground hover:text-foreground hover:bg-muted cursor-pointer rounded-md p-1.5 transition-colors"
+            >
+              <Search className="size-3.5" />
+            </button>
+          </Tip>
+          <Tip label="Symbol navigator" side="top" delay={300}>
+            <button
+              onClick={() => router.push(`/navigate/${repo.repo_id}`)}
+              className="text-muted-foreground hover:text-foreground hover:bg-muted cursor-pointer rounded-md p-1.5 transition-colors"
+            >
+              <ListTree className="size-3.5" />
+            </button>
+          </Tip>
+          <Tip label="Dependency map" side="top" delay={300}>
+            <button
+              onClick={() => router.push(`/depmap/${repo.repo_id}`)}
+              className="text-muted-foreground hover:text-foreground hover:bg-muted cursor-pointer rounded-md p-1.5 transition-colors"
+            >
+              <Share2 className="size-3.5" />
+            </button>
+          </Tip>
         </div>
-      ) : (
-        <div className="mt-auto flex gap-2">
-          <Button
-            onClick={() => router.push(`/search/${repo.repo_id}`)}
-            size="sm"
-            variant="outline"
-            className="flex-1 gap-2"
-          >
-            <Search className="size-3.5" />
-            Search
-          </Button>
-          <Button
-            onClick={() => router.push(`/chat/${repo.repo_id}`)}
-            size="sm"
-            className="flex-1 gap-2"
-          >
-            <MessageSquare className="size-3.5" />
-            Open Chat
-          </Button>
-        </div>
-      )}
+
+        {/* Primary action(s) */}
+        <AnimatePresence mode="wait" initial={false}>
+          {hasUpdates ? (
+            <motion.div
+              key="sync"
+              initial={{ opacity: 0, x: 6 }}
+              animate={{ opacity: 1, x: 0 }}
+              exit={{ opacity: 0, x: 6 }}
+              transition={{ duration: 0.15, ease: "easeOut" }}
+              className="flex items-center gap-2"
+            >
+              <Button
+                onClick={() => handleSync()}
+                disabled={syncing}
+                size="sm"
+                variant="outline"
+                className="gap-1.5 border-amber-500/30 text-amber-400 hover:bg-amber-500/10 hover:text-amber-300"
+              >
+                {syncing ? (
+                  <Loader2 className="size-3.5 animate-spin" />
+                ) : (
+                  <RefreshCw className="size-3.5" />
+                )}
+                {syncing ? "Syncing…" : "Sync"}
+              </Button>
+              <Button
+                onClick={() => router.push(`/chat/${repo.repo_id}`)}
+                size="sm"
+                className="gap-1.5"
+              >
+                <MessageSquare className="size-3.5" />
+                Chat
+              </Button>
+            </motion.div>
+          ) : (
+            <motion.div
+              key="chat"
+              initial={{ opacity: 0, x: 6 }}
+              animate={{ opacity: 1, x: 0 }}
+              exit={{ opacity: 0, x: 6 }}
+              transition={{ duration: 0.15, ease: "easeOut" }}
+            >
+              <Button
+                onClick={() => router.push(`/chat/${repo.repo_id}`)}
+                size="sm"
+                className="gap-1.5"
+              >
+                <MessageSquare className="size-3.5" />
+                Open Chat
+                <ArrowRight className="size-3.5" />
+              </Button>
+            </motion.div>
+          )}
+        </AnimatePresence>
+      </div>
     </motion.article>
   );
 };
