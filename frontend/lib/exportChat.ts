@@ -1,6 +1,6 @@
 import type { Message } from "@/types";
 
-function escapeHtml(s: string) {
+export function escapeHtml(s: string) {
   return s
     .replace(/&/g, "&amp;")
     .replace(/</g, "&lt;")
@@ -8,7 +8,7 @@ function escapeHtml(s: string) {
     .replace(/"/g, "&quot;");
 }
 
-function safeName(s: string) {
+export function safeName(s: string) {
   return (
     s
       .replace(/[^a-z0-9]+/gi, "-")
@@ -17,7 +17,7 @@ function safeName(s: string) {
   );
 }
 
-function buildMarkdown(messages: Message[], repoName: string): string {
+export function buildMarkdown(messages: Message[], repoName: string): string {
   const lines: string[] = [
     `# CodeLens Chat — ${repoName}`,
     `Exported: ${new Date().toLocaleString()}`,
