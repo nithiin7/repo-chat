@@ -129,12 +129,12 @@ const MessageBubble = ({ message, repoUrl, onSuggestionClick, onFork }: MessageB
             className={cn(
               "rounded-2xl rounded-tl-sm px-4 py-2.5 text-sm leading-relaxed",
               message.error
-                ? "border border-red-500/20 bg-red-500/5 text-red-400"
+                ? "bg-card text-foreground ring-1 ring-red-500/40"
                 : "bg-card text-foreground ring-1 ring-white/5"
             )}
           >
             {message.error && (
-              <div className="mb-2 flex items-center gap-1.5 text-xs font-medium text-red-400">
+              <div className="mb-2 flex items-center gap-1.5 text-xs font-medium text-red-400/80">
                 <AlertCircle className="size-3.5" />
                 Error
               </div>
@@ -148,7 +148,7 @@ const MessageBubble = ({ message, repoUrl, onSuggestionClick, onFork }: MessageB
                 <span className="bg-muted-foreground size-1.5 animate-bounce rounded-full [animation-delay:300ms]" />
               </div>
             ) : (
-              <div className="prose prose-sm prose-invert prose-headings:font-semibold prose-headings:text-foreground prose-p:text-foreground prose-p:leading-relaxed prose-strong:text-foreground prose-strong:font-semibold prose-code:text-indigo-300 prose-code:bg-muted prose-code:px-1 prose-code:py-0.5 prose-code:rounded prose-code:text-xs prose-code:before:content-none prose-code:after:content-none prose-pre:bg-transparent prose-pre:p-0 prose-ol:text-foreground prose-ul:text-foreground prose-li:text-foreground prose-li:marker:text-muted-foreground prose-blockquote:border-indigo-500/40 prose-blockquote:text-muted-foreground prose-hr:border-border max-w-none [&>*:first-child]:mt-0 [&>*:last-child]:mb-0">
+              <div className="prose prose-sm prose-invert prose-headings:font-semibold prose-headings:text-foreground prose-p:text-foreground prose-p:leading-relaxed prose-strong:text-foreground prose-strong:font-semibold prose-code:text-indigo-300 prose-code:bg-muted prose-code:px-1 prose-code:py-0.5 prose-code:rounded prose-code:text-xs prose-code:before:content-none prose-code:after:content-none prose-pre:bg-transparent prose-pre:p-0 prose-ol:text-foreground prose-ul:text-foreground prose-li:text-foreground prose-li:marker:text-muted-foreground prose-blockquote:border-indigo-500/40 prose-blockquote:text-muted-foreground prose-hr:border-border prose-a:text-indigo-400 prose-a:no-underline hover:prose-a:text-indigo-300 max-w-none [&>*:first-child]:mt-0 [&>*:last-child]:mb-0">
                 <ReactMarkdown
                   remarkPlugins={[remarkGfm]}
                   rehypePlugins={[rehypeHighlight]}

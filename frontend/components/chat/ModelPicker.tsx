@@ -184,7 +184,7 @@ const ModelPicker = ({ mode, disabled }: ModelPickerProps) => {
                       onClick={() => handleLocalModelSelect(m)}
                       disabled={saveMutation.isPending}
                       className={cn(
-                        "hover:bg-muted flex w-full items-center rounded-md px-2.5 py-1.5 text-left font-mono text-xs transition-colors disabled:opacity-50",
+                        "hover:bg-muted flex w-full cursor-pointer items-center rounded-md px-2.5 py-1.5 text-left font-mono text-xs transition-colors disabled:opacity-50",
                         m === settings?.ollama_model
                           ? "bg-emerald-500/10 text-emerald-400"
                           : "text-foreground"
@@ -217,7 +217,7 @@ const ModelPicker = ({ mode, disabled }: ModelPickerProps) => {
                     onClick={() => handleCloudModelSelect(m.value)}
                     disabled={saveMutation.isPending}
                     className={cn(
-                      "hover:bg-muted flex w-full flex-col px-3 py-2 text-left transition-colors disabled:opacity-50",
+                      "hover:bg-muted flex w-full cursor-pointer flex-col px-3 py-2 text-left transition-colors disabled:opacity-50",
                       m.value === savedModelForActiveProvider &&
                         activeProvider === settings?.cloud_provider
                         ? "bg-indigo-500/10"

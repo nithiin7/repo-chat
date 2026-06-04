@@ -136,7 +136,7 @@ export default function ScopeSelector({
                   type="button"
                   onClick={() => handleSelect(item.path)}
                   className={cn(
-                    "hover:bg-muted flex w-full items-center gap-2 px-3 py-1.5 text-left text-xs transition-colors",
+                    "hover:bg-muted flex w-full cursor-pointer items-center gap-2 px-3 py-1.5 text-left text-xs transition-colors",
                     scopePath === item.path && "bg-indigo-500/10 text-indigo-400"
                   )}
                 >

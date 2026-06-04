@@ -135,7 +135,7 @@ const ChatSidebar = ({ repoId, activeChatId, onSelectChat }: ChatSidebarProps) =
           onClick={() => void handleNewChat()}
           disabled={creating}
           title="New chat"
-          className="text-muted-foreground hover:bg-muted hover:text-foreground flex size-7 items-center justify-center rounded-md transition-colors disabled:opacity-40"
+          className="text-muted-foreground hover:bg-muted hover:text-foreground flex size-7 cursor-pointer items-center justify-center rounded-md transition-colors disabled:opacity-40"
         >
           <MessageSquarePlus className="size-3.5" />
         </button>
@@ -274,13 +274,13 @@ function ChatRow({
             />
             <button
               onClick={onCommitEdit}
-              className="text-muted-foreground hover:text-foreground shrink-0"
+              className="text-muted-foreground hover:text-foreground shrink-0 cursor-pointer"
             >
               <Check className="size-3.5" />
             </button>
             <button
               onClick={onCancelEdit}
-              className="text-muted-foreground hover:text-foreground shrink-0"
+              className="text-muted-foreground hover:text-foreground shrink-0 cursor-pointer"
             >
               <X className="size-3.5" />
             </button>
@@ -299,7 +299,7 @@ function ChatRow({
                 title={chat.is_pinned ? "Unpin" : "Pin"}
                 disabled={isPinning}
                 className={cn(
-                  "flex size-5 items-center justify-center rounded disabled:opacity-40",
+                  "flex size-5 cursor-pointer items-center justify-center rounded disabled:opacity-40",
                   chat.is_pinned
                     ? "hover:text-muted-foreground text-indigo-400"
                     : "text-muted-foreground hover:text-foreground"
@@ -310,7 +310,7 @@ function ChatRow({
               <button
                 onClick={onStartEdit}
                 title="Rename"
-                className="text-muted-foreground hover:text-foreground flex size-5 items-center justify-center rounded"
+                className="text-muted-foreground hover:text-foreground flex size-5 cursor-pointer items-center justify-center rounded"
               >
                 <Pencil className="size-3" />
               </button>
@@ -318,7 +318,7 @@ function ChatRow({
                 onClick={onDelete}
                 title="Delete"
                 disabled={isDeleting}
-                className="text-muted-foreground hover:text-destructive flex size-5 items-center justify-center rounded disabled:opacity-40"
+                className="text-muted-foreground hover:text-destructive flex size-5 cursor-pointer items-center justify-center rounded disabled:opacity-40"
               >
                 <Trash2 className="size-3" />
               </button>

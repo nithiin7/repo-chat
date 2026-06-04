@@ -60,7 +60,7 @@ export const Dropdown = ({
         type="button"
         onClick={() => setOpen((v) => !v)}
         className={cn(
-          "border-border bg-background flex w-full items-center justify-between gap-2 rounded-md border px-3 py-2 text-sm transition-colors",
+          "border-border bg-background flex w-full cursor-pointer items-center justify-between gap-2 rounded-md border px-3 py-2 text-sm transition-colors",
           "hover:bg-muted/50 focus:ring-ring focus:ring-1 focus:outline-none",
           open && "ring-ring ring-1"
         )}
@@ -94,7 +94,7 @@ export const Dropdown = ({
                       setOpen(false);
                     }}
                     className={cn(
-                      "flex w-full items-center gap-2 px-3 py-2 text-left text-sm transition-colors",
+                      "flex w-full cursor-pointer items-center gap-2 px-3 py-2 text-left text-sm transition-colors",
                       isSelected
                         ? "bg-indigo-500/10 text-indigo-400"
                         : "text-foreground hover:bg-muted"

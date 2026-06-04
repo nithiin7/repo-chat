@@ -181,6 +181,10 @@ async def chat(body: ChatRequest):
                     accumulated.append(item)
                     yield f"data: {json.dumps(item)}\n\n"
 
+        except ConnectionError:
+            had_error = True
+            logger.warning("Ollama not reachable for repo '%s'", repo_id_for_log)
+            yield "data: [ERROR] Cannot connect to Ollama. Make sure Ollama is running (https://ollama.com/download).\n\n"
         except LLMError as exc:
             had_error = True
             logger.warning("LLM error for repo '%s': %s", repo_id_for_log, exc)

@@ -210,7 +210,7 @@ const RepoInput = () => {
           <button
             type="button"
             onClick={() => setShowToken((v) => !v)}
-            className="text-muted-foreground hover:text-foreground flex items-center gap-1.5 text-xs transition-colors"
+            className="text-muted-foreground hover:text-foreground flex cursor-pointer items-center gap-1.5 text-xs transition-colors"
           >
             <Lock className="size-3" />
             {showToken ? "Hide token" : "Private repo? Add a GitHub token"}
@@ -219,7 +219,7 @@ const RepoInput = () => {
             type="button"
             onClick={() => setShowBranch((v) => !v)}
             className={cn(
-              "flex items-center gap-1.5 text-xs transition-colors",
+              "ml-auto flex cursor-pointer items-center gap-1.5 text-xs transition-colors",
               branch.trim()
                 ? "text-indigo-400 hover:text-indigo-300"
                 : "text-muted-foreground hover:text-foreground"

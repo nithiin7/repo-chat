@@ -101,6 +101,12 @@ export function chatStream(
                   onContentDone();
                   continue;
                 }
+                if (data.startsWith("[ERROR]")) {
+                  const msg = data.slice(7).trim() || "Something went wrong. Please try again.";
+                  onToken(msg);
+                  onError(new ErrorEvent("error", { message: msg }));
+                  return;
+                }
                 if (data) {
                   try {
                     const parsed = JSON.parse(data);
