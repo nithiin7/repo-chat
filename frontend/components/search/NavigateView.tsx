@@ -278,7 +278,7 @@ const NavigateView = ({ repo, repoId }: NavigateViewProps) => {
                 className="text-foreground placeholder:text-muted-foreground flex-1 bg-transparent text-sm outline-none"
               />
             </div>
-            <Button type="submit" disabled={isFetching} className="shrink-0">
+            <Button type="submit" disabled={isFetching} className="shrink-0 py-2.5">
               {isFetching ? "Loading…" : "Go"}
             </Button>
           </form>
@@ -290,7 +290,7 @@ const NavigateView = ({ repo, repoId }: NavigateViewProps) => {
                 key={k}
                 onClick={() => setKind(k)}
                 className={cn(
-                  "rounded-lg px-3 py-1 text-xs font-medium transition-colors",
+                  "cursor-pointer rounded-lg px-3 py-1 text-xs font-medium transition-colors",
                   kind === k
                     ? "bg-violet-500/15 text-violet-400"
                     : "text-muted-foreground hover:bg-muted hover:text-foreground"

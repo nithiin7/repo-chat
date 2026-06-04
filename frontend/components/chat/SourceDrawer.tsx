@@ -126,6 +126,8 @@ const SourceDrawer = ({ sources, repoUrl, open, onOpenChange }: SourceDrawerProp
     onOpenChange(o);
   };
 
+  const maxScore = Math.max(...sources.map((s) => s.score), 1e-9);
+
   // Bounds-check: sources array could shrink if the drawer re-renders with new props
   const src = expandedIdx !== null && expandedIdx < sources.length ? sources[expandedIdx] : null;
 
@@ -152,7 +154,7 @@ const SourceDrawer = ({ sources, repoUrl, open, onOpenChange }: SourceDrawerProp
                 const highlighted = highlightCode(src.chunk, language);
                 const lineCount = src.chunk.split("\n").length;
                 const fileUrl = repoUrl ? buildFileUrl(repoUrl, src.file_path) : null;
-                const { pct, color } = scoreLabel(src.score);
+                const { pct, color } = scoreLabel(src.score / maxScore);
 
                 return (
                   <>
@@ -272,7 +274,7 @@ const SourceDrawer = ({ sources, repoUrl, open, onOpenChange }: SourceDrawerProp
                     const segments = s.file_path.split("/");
                     const filename = segments.pop() ?? s.file_path;
                     const dir = segments.length > 0 ? segments.join("/") + "/" : "";
-                    const { pct, color } = scoreLabel(s.score);
+                    const { pct, color } = scoreLabel(s.score / maxScore);
                     const fileUrl = repoUrl ? buildFileUrl(repoUrl, s.file_path) : null;
 
                     return (

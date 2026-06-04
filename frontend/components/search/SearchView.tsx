@@ -31,16 +31,18 @@ function ResultCard({
   result,
   index,
   repoId,
+  normalizedScore,
 }: {
   result: SearchResult;
   index: number;
   repoId: string;
+  normalizedScore: number;
 }) {
   const [copied, setCopied] = useState(false);
   const segments = result.file_path.split("/");
   const filename = segments.pop() ?? result.file_path;
   const dir = segments.length > 0 ? segments.join("/") + "/" : "";
-  const { pct, color } = scoreLabel(result.score);
+  const { pct, color } = scoreLabel(normalizedScore);
 
   const copy = () => {
     navigator.clipboard.writeText(result.chunk).catch(() => {});
@@ -77,36 +79,36 @@ function ResultCard({
             <MessageSquare className="size-3" />
             Ask in chat
           </Link>
+          <button
+            onClick={copy}
+            aria-label="Copy code"
+            className={cn(
+              "flex cursor-pointer items-center gap-1 rounded-md px-2 py-1 text-[10px] font-medium transition-all duration-150",
+              copied
+                ? "bg-emerald-500/15 text-emerald-400"
+                : "border-border bg-card text-muted-foreground hover:text-foreground border opacity-0 group-hover:opacity-100"
+            )}
+          >
+            {copied ? (
+              <>
+                <Check className="size-3" />
+                Copied
+              </>
+            ) : (
+              <>
+                <Copy className="size-3" />
+                Copy
+              </>
+            )}
+          </button>
         </div>
       </div>
 
       {/* Code chunk */}
-      <div className="relative">
+      <div>
         <pre className="text-foreground/80 max-h-72 overflow-auto p-4 text-xs leading-relaxed">
           <code className="font-mono">{result.chunk}</code>
         </pre>
-        <button
-          onClick={copy}
-          aria-label="Copy code"
-          className={cn(
-            "absolute top-2 right-2 flex cursor-pointer items-center gap-1 rounded-md px-2 py-1 text-[10px] font-medium transition-all duration-150",
-            copied
-              ? "bg-emerald-500/15 text-emerald-400"
-              : "border-border bg-card text-muted-foreground hover:text-foreground border opacity-0 group-hover:opacity-100"
-          )}
-        >
-          {copied ? (
-            <>
-              <Check className="size-3" />
-              Copied
-            </>
-          ) : (
-            <>
-              <Copy className="size-3" />
-              Copy
-            </>
-          )}
-        </button>
       </div>
     </motion.div>
   );
@@ -277,9 +279,18 @@ const SearchView = ({ repo, repoId }: SearchViewProps) => {
                       </span>
                     </p>
                     <div className="flex flex-col gap-4">
-                      {data.results.map((result, i) => (
-                        <ResultCard key={i} result={result} index={i} repoId={repoId} />
-                      ))}
+                      {(() => {
+                        const maxScore = Math.max(...data.results.map((r) => r.score), 1e-9);
+                        return data.results.map((result, i) => (
+                          <ResultCard
+                            key={i}
+                            result={result}
+                            index={i}
+                            repoId={repoId}
+                            normalizedScore={result.score / maxScore}
+                          />
+                        ));
+                      })()}
                     </div>
                   </>
                 )}

@@ -17,12 +17,17 @@ export default async function ChatIndexPage({
   let targetChatId: string | null = null;
 
   try {
-    const chats = await listChats(repo_id);
-    if (chats.length > 0) {
-      targetChatId = chats[0].id;
-    } else {
+    if (q) {
       const chat = await createChat(repo_id);
       targetChatId = chat.id;
+    } else {
+      const chats = await listChats(repo_id);
+      if (chats.length > 0) {
+        targetChatId = chats[0].id;
+      } else {
+        const chat = await createChat(repo_id);
+        targetChatId = chat.id;
+      }
     }
   } catch {
     // Backend unreachable
