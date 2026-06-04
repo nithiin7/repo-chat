@@ -127,6 +127,9 @@ const ChatWindow = ({
   const fetchTokenRef = useRef<symbol | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   const userScrolledUp = useRef(false);
+  const streamContentRef = useRef("");
+  const streamRafRef = useRef<number | null>(null);
+  const suggestionTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const displayName =
     repo?.name ||
@@ -214,6 +217,18 @@ const ChatWindow = ({
         )
       );
 
+      streamContentRef.current = "";
+
+      const flushStreamContent = () => {
+        streamRafRef.current = null;
+        const content = streamContentRef.current;
+        setMessages((prev) => {
+          const last = prev[prev.length - 1];
+          if (!last || last.role !== "assistant") return prev;
+          return [...prev.slice(0, -1), { ...last, content }];
+        });
+      };
+
       const cancel = chatStream(
         {
           repo_id: repoId,
@@ -224,11 +239,10 @@ const ChatWindow = ({
           scope_paths: scopePath ? [scopePath] : undefined,
         },
         (token) => {
-          setMessages((prev) => {
-            const last = prev[prev.length - 1];
-            if (!last || last.role !== "assistant") return prev;
-            return [...prev.slice(0, -1), { ...last, content: last.content + token }];
-          });
+          streamContentRef.current += token;
+          if (!streamRafRef.current) {
+            streamRafRef.current = requestAnimationFrame(flushStreamContent);
+          }
         },
         (sources) => {
           setMessages((prev) => {
@@ -238,6 +252,10 @@ const ChatWindow = ({
           });
         },
         (suggestions) => {
+          if (suggestionTimerRef.current) {
+            clearTimeout(suggestionTimerRef.current);
+            suggestionTimerRef.current = null;
+          }
           setMessages((prev) => {
             const last = prev[prev.length - 1];
             if (!last || last.role !== "assistant") return prev;
@@ -245,13 +263,19 @@ const ChatWindow = ({
           });
         },
         () => {
+          // Flush any remaining buffered content before marking done
+          if (streamRafRef.current) {
+            cancelAnimationFrame(streamRafRef.current);
+            flushStreamContent();
+          }
           setMessages((prev) => {
             const last = prev[prev.length - 1];
             if (!last || last.role !== "assistant") return prev;
             return [...prev.slice(0, -1), { ...last, streaming: false, suggestionsLoading: true }];
           });
           // Safety fallback: clear the loading skeleton if suggestions never arrive
-          setTimeout(() => {
+          suggestionTimerRef.current = setTimeout(() => {
+            suggestionTimerRef.current = null;
             setMessages((prev) => {
               const last = prev[prev.length - 1];
               if (!last || last.role !== "assistant" || !last.suggestionsLoading) return prev;
@@ -260,6 +284,14 @@ const ChatWindow = ({
           }, 15_000);
         },
         () => {
+          if (streamRafRef.current) {
+            cancelAnimationFrame(streamRafRef.current);
+            streamRafRef.current = null;
+          }
+          if (suggestionTimerRef.current) {
+            clearTimeout(suggestionTimerRef.current);
+            suggestionTimerRef.current = null;
+          }
           setMessages((prev) => {
             const last = prev[prev.length - 1];
             if (!last || last.role !== "assistant") return prev;
@@ -267,7 +299,7 @@ const ChatWindow = ({
               ...prev.slice(0, -1),
               {
                 ...last,
-                content: last.content || "Something went wrong. Please try again.",
+                content: streamContentRef.current || "Something went wrong. Please try again.",
                 streaming: false,
                 error: true,
               },
@@ -277,6 +309,10 @@ const ChatWindow = ({
           cancelRef.current = null;
         },
         () => {
+          if (streamRafRef.current) {
+            cancelAnimationFrame(streamRafRef.current);
+            streamRafRef.current = null;
+          }
           setMessages((prev) => {
             const last = prev[prev.length - 1];
             if (!last || last.role !== "assistant") return prev;
@@ -304,10 +340,21 @@ const ChatWindow = ({
   const handleStop = () => {
     cancelRef.current?.();
     cancelRef.current = null;
+    if (streamRafRef.current) {
+      cancelAnimationFrame(streamRafRef.current);
+      streamRafRef.current = null;
+    }
+    if (suggestionTimerRef.current) {
+      clearTimeout(suggestionTimerRef.current);
+      suggestionTimerRef.current = null;
+    }
     setMessages((prev) => {
       const last = prev[prev.length - 1];
       if (!last || last.role !== "assistant") return prev;
-      return [...prev.slice(0, -1), { ...last, streaming: false }];
+      return [
+        ...prev.slice(0, -1),
+        { ...last, content: streamContentRef.current || last.content, streaming: false },
+      ];
     });
     setStreaming(false);
   };

@@ -58,61 +58,65 @@ export function chatStream(
       let buffer = "";
       let currentEvent = "message";
 
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) {
-          onDone();
-          break;
-        }
-        buffer += decoder.decode(value, { stream: true });
-        const lines = buffer.split("\n");
-        buffer = lines.pop() ?? "";
+      try {
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) {
+            onDone();
+            break;
+          }
+          buffer += decoder.decode(value, { stream: true });
+          const lines = buffer.split("\n");
+          buffer = lines.pop() ?? "";
 
-        for (const line of lines) {
-          if (line.startsWith("event: ")) {
-            currentEvent = line.slice(7).trim();
-          } else if (line.startsWith("data: ")) {
-            const data = line.slice(6).trim();
-            if (currentEvent === "sources") {
-              try {
-                onSources(JSON.parse(data) as SourceChunk[]);
-              } catch {
-                // Malformed sources payload — skip silently
-              }
-            } else if (currentEvent === "suggestions") {
-              try {
-                onSuggestions(JSON.parse(data) as string[]);
-              } catch {
-                // Malformed suggestions payload — skip silently
-              }
-            } else if (currentEvent === "usage") {
-              try {
-                if (onUsage) onUsage(JSON.parse(data) as TokenUsage);
-              } catch {
-                // Malformed usage payload — skip silently
-              }
-            } else {
-              if (data === "[DONE]") {
-                onDone();
-                return;
-              }
-              if (data === "[CONTENT_DONE]") {
-                onContentDone();
-                continue;
-              }
-              if (data) {
+          for (const line of lines) {
+            if (line.startsWith("event: ")) {
+              currentEvent = line.slice(7).trim();
+            } else if (line.startsWith("data: ")) {
+              const data = line.slice(6).trim();
+              if (currentEvent === "sources") {
                 try {
-                  const parsed = JSON.parse(data);
-                  onToken(typeof parsed === "string" ? parsed : data);
+                  onSources(JSON.parse(data) as SourceChunk[]);
                 } catch {
-                  onToken(data);
+                  // Malformed sources payload — skip silently
+                }
+              } else if (currentEvent === "suggestions") {
+                try {
+                  onSuggestions(JSON.parse(data) as string[]);
+                } catch {
+                  // Malformed suggestions payload — skip silently
+                }
+              } else if (currentEvent === "usage") {
+                try {
+                  if (onUsage) onUsage(JSON.parse(data) as TokenUsage);
+                } catch {
+                  // Malformed usage payload — skip silently
+                }
+              } else {
+                if (data === "[DONE]") {
+                  onDone();
+                  return;
+                }
+                if (data === "[CONTENT_DONE]") {
+                  onContentDone();
+                  continue;
+                }
+                if (data) {
+                  try {
+                    const parsed = JSON.parse(data);
+                    onToken(typeof parsed === "string" ? parsed : data);
+                  } catch {
+                    onToken(data);
+                  }
                 }
               }
+            } else if (line === "") {
+              currentEvent = "message";
             }
-          } else if (line === "") {
-            currentEvent = "message";
           }
         }
+      } finally {
+        reader.releaseLock();
       }
     })
     .catch((err: unknown) => {

@@ -7,6 +7,9 @@ if (process.env.NODE_ENV === "production" && !process.env.NEXT_PUBLIC_API_URL) {
 
 const nextConfig: NextConfig = {
   output: "standalone",
+  turbopack: {
+    root: __dirname,
+  },
 };
 
 export default withBundleAnalyzer({ enabled: process.env.ANALYZE === "true" })(nextConfig);
