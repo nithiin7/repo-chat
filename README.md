@@ -1,72 +1,108 @@
-<p align="center">
-  <img src="frontend/public/logo.svg" alt="CodeLens" width="280"/>
-</p>
+<div align="center">
+  <img src="frontend/public/logo.svg" alt="CodeLens Logo" width="180"/>
 
-<p align="center"><strong>Ask natural language questions about any GitHub or Bitbucket codebase — powered by local or cloud LLMs.</strong></p>
+  <h1>CodeLens</h1>
 
-Paste a repo URL. CodeLens clones it, indexes every source file into a vector store, and opens a streaming chat interface so you can explore the codebase in plain English — no manual reading required.
+  <p><strong>Ask natural language questions about any GitHub or Bitbucket codebase — powered by local or cloud LLMs.</strong></p>
 
----
+  <p>
+    <img src="https://img.shields.io/badge/license-MIT-blue.svg" alt="MIT License"/>
+    <img src="https://img.shields.io/badge/python-3.11+-3776AB.svg?logo=python&logoColor=white" alt="Python 3.11+"/>
+    <img src="https://img.shields.io/badge/Next.js-16-000000.svg?logo=nextdotjs&logoColor=white" alt="Next.js 16"/>
+    <img src="https://img.shields.io/badge/FastAPI-009688.svg?logo=fastapi&logoColor=white" alt="FastAPI"/>
+    <img src="https://img.shields.io/badge/LLM-Ollama%20%7C%20Claude%20%7C%20OpenAI-7C3AED.svg" alt="LLM Modes"/>
+    <img src="https://img.shields.io/badge/runs%20100%25%20locally-✓-22c55e.svg" alt="Runs locally"/>
+  </p>
 
-## Features
-
-- **Instant repo indexing** — paste a GitHub or Bitbucket URL and CodeLens fetches and indexes the entire codebase in seconds
-- **Natural language Q&A** — ask anything: "How does auth work?", "Where are API routes defined?", "What does the payment module do?"
-- **Streaming responses** — answers stream token-by-token via SSE, no waiting for the full response
-- **Local or cloud LLM** — toggle between fully local (Ollama, zero data leaves your machine) and cloud (Claude / OpenAI) per chat session
-- **Smart code chunking** — tree-sitter–backed `CodeSplitter` understands Python, TypeScript, JavaScript, Go, Java, and more; falls back gracefully for other file types
-- **Persistent vector store** — ChromaDB persists embeddings per repo, so re-opening a repo skips re-indexing
-- **Multi-repo dashboard** — browse, switch between, and delete all indexed repos from one place
-- **Configurable embeddings** — uses `BAAI/bge-small-en-v1.5` locally by default; swap the model from settings
-- **Private repo support** — paste a GitHub personal access token directly in the UI to index private repos; no env-var setup needed (token is sent per-request, never stored). Bitbucket private repos work via `BITBUCKET_USERNAME` / `BITBUCKET_APP_PASSWORD` in `.env`
-- **Branch selection** — optionally pin indexing to a specific branch (e.g. `develop`, `feature/x`) via the "Specific branch?" toggle in the UI; defaults to the remote HEAD. The indexed branch is shown on the repo card and used for update checks
-- **Semantic code search** — search across the entire repo by intent, not keywords; results are ranked by embedding similarity with no LLM involved
-- **Symbol navigator** — browse every function, class, and method extracted via AST parsing (Python `ast` module; regex for JS/TS/Go/Java); filter by kind, expand definitions inline, and jump to chat from any result
-- **Dependency map** — visualize module-level import relationships as an interactive force-directed graph; click any file node to see what it imports and what imports it, with color-coding by language
-- **Repo health summary** — auto-generated overview of complexity hotspots (function count + avg length per file), TODO/FIXME/HACK comments with file and line number, and a test coverage estimate derived from the symbol index; surfaced as a collapsible panel inside the chat view
-- **Streaming chat history** — each chat session retains message history so you can ask follow-up questions
-- **Code block actions** — hover any code block in a chat response to copy it to the clipboard; source file references include a direct link to the file in GitHub, Bitbucket, or GitLab
-- **PR & diff analysis** — paste a GitHub/Bitbucket PR URL, a commit URL, or a raw SHA into the chat header to load the diff as context; ask "what does this PR change?" or "are there any risks?" — the LLM answers against both the diff and the full codebase index
-- **Cross-repo comparison** — select two or more indexed repos from the dashboard and open a shared chat; ask comparative questions like "How does auth differ between these repos?" or "Which has better test coverage patterns?" — the LLM retrieves context from all selected repos in parallel and answers with repo-labeled evidence
+  <p>
+    <a href="#-quick-start">Quick Start</a> ·
+    <a href="#-features">Features</a> ·
+    <a href="#️-stack">Stack</a> ·
+    <a href="#-api">API</a>
+  </p>
+</div>
 
 ---
 
-## Demo
-
-> Index a repo → ask a question → get a streamed, context-aware answer grounded in the actual source code.
+> Paste a GitHub or Bitbucket URL. CodeLens clones it, indexes every source file into a vector store, and opens a streaming chat so you can explore any codebase in plain English — no manual reading required.
 
 ---
 
-## Stack
+## 🖥️ Screenshots
 
-| Layer | Technology |
-|---|---|
-| Backend API | FastAPI + Python |
-| RAG | LlamaIndex (CodeSplitter + tree-sitter) |
-| Vector store | ChromaDB (persisted per repo) |
-| Embeddings | `BAAI/bge-small-en-v1.5` (local, no API key needed) |
-| LLM — local | Ollama `llama3.1:8b` |
-| LLM — cloud | Anthropic Claude / OpenAI (configurable) |
-| Frontend | Next.js 16, TypeScript, Tailwind CSS, shadcn/ui |
+<div align="center">
+  <img src="docs/screenshots/chat.png" alt="Chat Interface — ask anything about the codebase" width="800"/>
+  <p><em>Ask natural language questions — answers stream token-by-token, grounded in the actual source code</em></p>
+</div>
+
+<br/>
+
+<div align="center">
+  <table>
+    <tr>
+      <td align="center">
+        <img src="docs/screenshots/dashboard.png" alt="Multi-repo dashboard" width="390"/>
+        <br/><em>Multi-repo dashboard</em>
+      </td>
+      <td align="center">
+        <img src="docs/screenshots/depmap.png" alt="Interactive dependency map" width="390"/>
+        <br/><em>Interactive dependency map</em>
+      </td>
+    </tr>
+    <tr>
+      <td align="center">
+        <img src="docs/screenshots/search.png" alt="Semantic code search" width="390"/>
+        <br/><em>Semantic code search</em>
+      </td>
+      <td align="center">
+        <img src="docs/screenshots/navigate.png" alt="Symbol navigator" width="390"/>
+        <br/><em>AST-based symbol navigator</em>
+      </td>
+    </tr>
+  </table>
+</div>
 
 ---
 
-## Quick Start
+## ✨ Features
+
+**Core**
+- 🔍 **Natural language Q&A** — ask anything: *"How does auth work?"*, *"Where are API routes defined?"*, *"What does the payment module do?"*
+- ⚡ **Streaming responses** — answers stream token-by-token via SSE; no waiting for the full response
+- 🔒 **Fully local mode** — run entirely on-device with Ollama; zero data leaves your machine
+- ☁️ **Cloud LLM support** — Claude (Anthropic), OpenAI, Groq, and Gemini; toggle per chat session
+- 🧠 **Smart code chunking** — tree-sitter–backed `CodeSplitter` understands Python, TypeScript, JavaScript, Go, Java, and more
+
+**Codebase Intelligence**
+- 🗺️ **Dependency map** — visualize module-level import relationships as an interactive force-directed graph
+- 🔎 **Semantic code search** — search by intent, not keywords; ranked by embedding similarity
+- 🧭 **Symbol navigator** — browse every function, class, and method extracted via AST; filter by kind and jump to chat
+- 🏥 **Repo health summary** — complexity hotspots, TODO/FIXME/HACK locations, and test coverage estimates
+
+**Advanced**
+- 📋 **PR & diff analysis** — paste a GitHub PR URL or commit SHA; ask *"what does this PR change?"* or *"are there risks?"*
+- 🔗 **Cross-repo comparison** — select multiple repos and ask comparative questions in a shared chat
+- 🔑 **Private repo support** — pass a GitHub PAT directly in the UI; never stored server-side
+- 🌿 **Branch selection** — pin indexing to any branch; defaults to remote HEAD
+
+---
+
+## 🚀 Quick Start
 
 ### Docker (recommended)
 
-The fastest way to run CodeLens locally. Starts the backend, frontend, and Ollama in one command.
+One command starts the backend, frontend, and Ollama together:
 
 ```bash
-cp backend/.env.example backend/.env   # add cloud API keys if you want cloud mode
+cp backend/.env.example backend/.env   # add cloud API keys if needed
 docker compose up --build
 ```
 
-Open [http://localhost:3000](http://localhost:3000).
+Open **http://localhost:3000** — that's it.
 
 > **First run:** Ollama starts empty. Pull the model once the container is up:
 > ```bash
-> docker exec -it <ollama-container-id> ollama pull llama3.1:8b
+> docker exec -it <ollama-container-id> ollama pull qwen3:4b
 > ```
 
 Vector store and downloaded models persist in named Docker volumes between restarts.
@@ -75,86 +111,94 @@ Vector store and downloaded models persist in named Docker volumes between resta
 
 ### Manual Setup
 
-#### Prerequisites
-
-- Python 3.11+
-- Node.js 22+
-- [Ollama](https://ollama.com) running locally with `llama3.1:8b` pulled (only needed for local mode)
-
-#### 1. Backend
+**Prerequisites:** Python 3.11+, Node.js 22+, [Ollama](https://ollama.com) (for local mode)
 
 ```bash
+# Backend
 cd backend
 python -m venv .venv && source .venv/bin/activate
 pip install -r requirements.txt
-cp .env.example .env          # fill in API keys as needed
+cp .env.example .env
 uvicorn main:app --reload
-```
 
-#### 2. Frontend
-
-```bash
+# Frontend (separate terminal)
 cd frontend
 npm install
 npm run dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000).
+Open **http://localhost:3000**.
 
 ---
 
-## LLM Modes
+## 🛠️ Stack
 
-| Mode | Model | Data leaves machine? |
+| Layer | Technology |
+|---|---|
+| Backend API | FastAPI + Python 3.11 |
+| RAG pipeline | LlamaIndex · CodeSplitter · tree-sitter |
+| Vector store | ChromaDB (persisted per repo) |
+| Embeddings | `BAAI/bge-small-en-v1.5` — local, no API key needed |
+| LLM — local | Ollama (`qwen3:4b` default) |
+| LLM — cloud | Anthropic Claude · OpenAI · Groq · Gemini |
+| Relational DB | SQLite via SQLModel |
+| Frontend | Next.js 16 · TypeScript · Tailwind CSS · shadcn/ui |
+
+---
+
+## 🤖 LLM Modes
+
+| Mode | Provider | Data leaves machine? |
 |---|---|---|
-| LOCAL | Ollama `llama3.1:8b` | No |
-| CLOUD | Claude (Anthropic) | Yes |
-| CLOUD | OpenAI (e.g. `gpt-4o`) | Yes |
+| **LOCAL** | Ollama (`qwen3:4b`) | ✗ Never |
+| **CLOUD** | Claude (Anthropic) | ✓ Yes |
+| **CLOUD** | OpenAI (`gpt-4o`) | ✓ Yes |
+| **CLOUD** | Groq (`llama-3.3-70b`) | ✓ Yes |
+| **CLOUD** | Gemini (`gemini-2.0-flash`) | ✓ Yes |
 
-Switch modes from the UI toggle per chat session. Local mode requires Ollama running; cloud mode requires the relevant API key in `.env`.
+Toggle per chat session from the UI. Local mode requires Ollama; cloud mode requires the relevant API key.
 
 ---
 
-## Supported Languages
+## 🌐 Supported Languages
 
-CodeSplitter uses tree-sitter to parse source files with syntax awareness:
+CodeSplitter uses tree-sitter for syntax-aware chunking:
 
 `Python` · `TypeScript` · `JavaScript` · `TSX / JSX` · `Go` · `Java`
 
-All other text files are chunked with a sentence splitter fallback.
+All other text files are chunked with a sentence-splitter fallback.
 
 ---
 
-## API
+## 📡 API
 
 | Method | Path | Description |
 |---|---|---|
 | `POST` | `/index` | Clone and index a repo by URL |
+| `POST` | `/index/stream` | Same, but streams indexing progress via SSE |
 | `POST` | `/chat` | Stream an answer over SSE |
 | `GET` | `/repos` | List all indexed repos |
 | `DELETE` | `/repos/{repo_id}` | Remove a repo and its index |
-| `GET` | `/repos/{repo_id}/search?query=...&top_k=10` | Semantic search — returns ranked code chunks by embedding similarity |
-| `GET` | `/repos/{repo_id}/navigate?query=...&kind=function&limit=50` | Symbol navigator — returns functions/classes/methods parsed from the AST |
-| `GET` | `/repos/{repo_id}/deps` | Dependency graph — nodes (files) and edges (import relationships) for the entire repo |
-| `GET` | `/repos/{repo_id}/health` | Repo health summary — complexity hotspots, TODO/FIXME list, and test coverage estimate |
-| `POST` | `/repos/{repo_id}/diffs` | Fetch and index a PR or commit diff (accepts GitHub/Bitbucket PR URL, commit URL, or raw SHA) |
-| `GET` | `/repos/{repo_id}/diffs` | List all diffs indexed for a repo |
-| `DELETE` | `/diffs/{diff_id}` | Remove a diff |
+| `GET` | `/repos/{repo_id}/search` | Semantic search — ranked code chunks by embedding similarity |
+| `GET` | `/repos/{repo_id}/navigate` | Symbol navigator — functions/classes/methods from AST |
+| `GET` | `/repos/{repo_id}/deps` | Dependency graph — nodes (files) + edges (imports) |
+| `GET` | `/repos/{repo_id}/health` | Repo health — complexity hotspots, TODOs, test coverage |
+| `POST` | `/repos/{repo_id}/diffs` | Fetch and index a PR or commit diff |
 
 ---
 
-## Environment Variables
-
-Copy `backend/.env.example` and fill in what you need:
+## ⚙️ Environment Variables
 
 ```env
 # Local LLM
 OLLAMA_BASE_URL=http://localhost:11434
-OLLAMA_MODEL=llama3.1:8b
+OLLAMA_MODEL=qwen3:4b
 
-# Cloud LLM (pick one or both)
+# Cloud LLM (pick any)
 ANTHROPIC_API_KEY=
 OPENAI_API_KEY=
+GROQ_API_KEY=
+GEMINI_API_KEY=
 
 # Private repos (optional)
 GITHUB_TOKEN=
@@ -168,4 +212,4 @@ See [backend/.env.example](backend/.env.example) for the full list.
 
 ## License
 
-MIT
+MIT — see [LICENSE](LICENSE).
