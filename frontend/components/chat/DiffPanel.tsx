@@ -82,7 +82,7 @@ const DiffPanel = ({ repoId, activeDiff, onDiffLoaded, onDiffCleared }: DiffPane
           onClick={() => setOpen((o) => !o)}
           title={activeDiff.title}
           className={cn(
-            "flex h-8 items-center gap-1.5 rounded-lg px-2.5 text-xs font-medium transition-colors",
+            "flex h-8 cursor-pointer items-center gap-1.5 rounded-lg px-2.5 text-xs font-medium transition-colors",
             "bg-indigo-500/15 text-indigo-400 hover:bg-indigo-500/25"
           )}
         >
@@ -93,7 +93,7 @@ const DiffPanel = ({ repoId, activeDiff, onDiffLoaded, onDiffCleared }: DiffPane
           <span
             role="button"
             onClick={handleClear}
-            className="ml-0.5 flex size-4 items-center justify-center rounded-full hover:bg-indigo-400/20"
+            className="ml-0.5 flex size-4 cursor-pointer items-center justify-center rounded-full hover:bg-indigo-400/20"
           >
             <X className="size-3" />
           </span>
@@ -153,7 +153,7 @@ const DiffPanel = ({ repoId, activeDiff, onDiffLoaded, onDiffCleared }: DiffPane
               <button
                 type="button"
                 onClick={() => setShowToken((v) => !v)}
-                className="text-muted-foreground hover:text-foreground flex items-center gap-1.5 pl-0.5 text-xs transition-colors"
+                className="text-muted-foreground hover:text-foreground flex cursor-pointer items-center gap-1.5 pl-0.5 text-xs transition-colors"
               >
                 <Lock className="size-3" />
                 {showToken ? "Hide token" : "Private repo? Add GitHub token"}
@@ -194,7 +194,7 @@ const DiffPanel = ({ repoId, activeDiff, onDiffLoaded, onDiffCleared }: DiffPane
               <button
                 type="submit"
                 disabled={!url.trim() || loading}
-                className="bg-primary text-primary-foreground flex w-full items-center justify-center gap-2 rounded-lg px-3 py-1.5 text-xs font-semibold transition-opacity disabled:opacity-50"
+                className="bg-primary text-primary-foreground flex w-full cursor-pointer items-center justify-center gap-2 rounded-lg px-3 py-1.5 text-xs font-semibold transition-opacity disabled:cursor-not-allowed disabled:opacity-50"
               >
                 {loading ? (
                   <>
@@ -210,7 +210,7 @@ const DiffPanel = ({ repoId, activeDiff, onDiffLoaded, onDiffCleared }: DiffPane
                 <button
                   type="button"
                   onClick={handleClear}
-                  className="border-border text-muted-foreground hover:text-foreground w-full rounded-lg border px-3 py-1.5 text-xs transition-colors"
+                  className="border-border text-muted-foreground hover:text-foreground w-full cursor-pointer rounded-lg border px-3 py-1.5 text-xs transition-colors"
                 >
                   Clear active diff
                 </button>

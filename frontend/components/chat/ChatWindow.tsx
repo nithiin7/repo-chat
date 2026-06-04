@@ -2,7 +2,7 @@
 
 import { useState, useRef, useEffect, useCallback } from "react";
 import Link from "next/link";
-import { motion } from "framer-motion";
+import { motion, AnimatePresence } from "framer-motion";
 import {
   Activity,
   ArrowLeft,
@@ -125,6 +125,7 @@ const ChatWindow = ({
 
   const cancelRef = useRef<(() => void) | null>(null);
   const fetchTokenRef = useRef<symbol | null>(null);
+  const [showScrollBtn, setShowScrollBtn] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
   const userScrolledUp = useRef(false);
   const streamContentRef = useRef("");
@@ -158,7 +159,16 @@ const ChatWindow = ({
   const handleScroll = () => {
     const el = scrollRef.current;
     if (!el) return;
-    userScrolledUp.current = el.scrollHeight - el.scrollTop - el.clientHeight > 80;
+    const scrolledUp = el.scrollHeight - el.scrollTop - el.clientHeight > 80;
+    userScrolledUp.current = scrolledUp;
+    setShowScrollBtn(scrolledUp);
+  };
+
+  const scrollToBottom = () => {
+    const el = scrollRef.current;
+    if (el) el.scrollTop = el.scrollHeight;
+    userScrolledUp.current = false;
+    setShowScrollBtn(false);
   };
 
   const handleSelectChat = useCallback(
@@ -173,6 +183,7 @@ const ChatWindow = ({
       setMessages([]);
       setInput("");
       userScrolledUp.current = false;
+      setShowScrollBtn(false);
       window.history.pushState(null, "", `/chat/${repoId}/${chat.id}`);
       try {
         const msgs = await queryClient.fetchQuery({
@@ -199,6 +210,7 @@ const ChatWindow = ({
       if (!q || streaming) return;
 
       userScrolledUp.current = false;
+      setShowScrollBtn(false);
       setStreaming(true);
       setInput("");
 
@@ -366,6 +378,7 @@ const ChatWindow = ({
       setActiveChatId(newChat.id);
       setMessages([]);
       userScrolledUp.current = false;
+      setShowScrollBtn(false);
       window.history.pushState(null, "", `/chat/${repoId}/${newChat.id}`);
       const msgs = await getChatMessages(newChat.id);
       setMessages(dbMessagesToUi(msgs));
@@ -528,88 +541,117 @@ const ChatWindow = ({
         {/* Main chat column */}
         <div className="flex min-w-0 flex-1 flex-col">
           {/* Navigator context banner */}
-          {navContext && (
-            <div className="shrink-0 border-b border-violet-500/20 bg-violet-500/5 px-4 py-3">
-              <div className="mx-auto max-w-3xl">
-                <div className="flex items-start justify-between gap-3">
-                  <div className="flex min-w-0 flex-1 flex-col gap-1.5">
-                    {/* Title row */}
-                    <div className="flex items-center gap-2">
-                      <ListTree className="size-3.5 shrink-0 text-violet-400" />
-                      <span className="text-[10px] font-semibold tracking-widest text-violet-400 uppercase">
-                        From symbol navigator
-                      </span>
+          <AnimatePresence initial={false}>
+            {navContext && (
+              <motion.div
+                initial={{ opacity: 0, height: 0 }}
+                animate={{ opacity: 1, height: "auto" }}
+                exit={{ opacity: 0, height: 0 }}
+                transition={{ duration: 0.2, ease: "easeOut" }}
+                className="shrink-0 overflow-hidden"
+              >
+                <div className="border-b border-violet-500/20 bg-violet-500/5 px-4 py-3">
+                  <div className="mx-auto max-w-3xl">
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="flex min-w-0 flex-1 flex-col gap-1.5">
+                        {/* Title row */}
+                        <div className="flex items-center gap-2">
+                          <ListTree className="size-3.5 shrink-0 text-violet-400" />
+                          <span className="text-[10px] font-semibold tracking-widest text-violet-400 uppercase">
+                            From symbol navigator
+                          </span>
+                        </div>
+                        {/* Symbol info */}
+                        <div className="flex flex-wrap items-center gap-2">
+                          <span className="rounded bg-violet-500/15 px-1.5 py-0.5 font-mono text-[10px] font-semibold text-violet-400">
+                            {navContext.kind}
+                          </span>
+                          <span className="text-foreground font-mono text-sm font-semibold">
+                            {navContext.name}
+                          </span>
+                          <span className="text-muted-foreground font-mono text-xs">
+                            {navContext.file_path.split("/").slice(-2).join("/")}:
+                            {navContext.start_line}
+                          </span>
+                        </div>
+                        {/* Expandable snippet */}
+                        <button
+                          onClick={() => setNavSnippetOpen((v) => !v)}
+                          className="text-muted-foreground hover:text-foreground flex cursor-pointer items-center gap-1 self-start text-[10px]"
+                        >
+                          {navSnippetOpen ? (
+                            <>
+                              <ChevronDown className="size-3" />
+                              Hide code
+                            </>
+                          ) : (
+                            <>
+                              <ChevronRight className="size-3" />
+                              Show code
+                            </>
+                          )}
+                        </button>
+                        {navSnippetOpen && (
+                          <pre className="border-border bg-card text-foreground/80 mt-1 max-h-48 overflow-auto rounded-lg border p-3 text-xs leading-relaxed">
+                            <code className="font-mono">{navContext.snippet}</code>
+                          </pre>
+                        )}
+                      </div>
+                      {/* Dismiss */}
+                      <button
+                        onClick={() => {
+                          setNavContext(null);
+                          setNavSnippetOpen(false);
+                        }}
+                        aria-label="Dismiss context"
+                        className="text-muted-foreground hover:bg-muted hover:text-foreground mt-0.5 flex shrink-0 cursor-pointer items-center justify-center rounded p-1"
+                      >
+                        <X className="size-3.5" />
+                      </button>
                     </div>
-                    {/* Symbol info */}
-                    <div className="flex flex-wrap items-center gap-2">
-                      <span className="rounded bg-violet-500/15 px-1.5 py-0.5 font-mono text-[10px] font-semibold text-violet-400">
-                        {navContext.kind}
-                      </span>
-                      <span className="text-foreground font-mono text-sm font-semibold">
-                        {navContext.name}
-                      </span>
-                      <span className="text-muted-foreground font-mono text-xs">
-                        {navContext.file_path.split("/").slice(-2).join("/")}:
-                        {navContext.start_line}
-                      </span>
-                    </div>
-                    {/* Expandable snippet */}
-                    <button
-                      onClick={() => setNavSnippetOpen((v) => !v)}
-                      className="text-muted-foreground hover:text-foreground flex cursor-pointer items-center gap-1 self-start text-[10px]"
-                    >
-                      {navSnippetOpen ? (
-                        <>
-                          <ChevronDown className="size-3" />
-                          Hide code
-                        </>
-                      ) : (
-                        <>
-                          <ChevronRight className="size-3" />
-                          Show code
-                        </>
-                      )}
-                    </button>
-                    {navSnippetOpen && (
-                      <pre className="border-border bg-card text-foreground/80 mt-1 max-h-48 overflow-auto rounded-lg border p-3 text-xs leading-relaxed">
-                        <code className="font-mono">{navContext.snippet}</code>
-                      </pre>
-                    )}
                   </div>
-                  {/* Dismiss */}
-                  <button
-                    onClick={() => {
-                      setNavContext(null);
-                      setNavSnippetOpen(false);
-                    }}
-                    aria-label="Dismiss context"
-                    className="text-muted-foreground hover:bg-muted hover:text-foreground mt-0.5 flex shrink-0 cursor-pointer items-center justify-center rounded p-1"
-                  >
-                    <X className="size-3.5" />
-                  </button>
                 </div>
-              </div>
-            </div>
-          )}
+              </motion.div>
+            )}
+          </AnimatePresence>
 
           {/* Message list */}
-          <div ref={scrollRef} onScroll={handleScroll} className="flex-1 overflow-y-auto">
-            {messages.length === 0 ? (
-              <ChatEmptyState repo={repo} mode={mode} onSuggestionClick={submit} />
-            ) : (
-              <div className="mx-auto max-w-3xl px-4 py-8">
-                {messages.map((msg) => (
-                  <MessageBubble
-                    key={msg.id}
-                    message={msg}
-                    repoUrl={repo?.url}
-                    onSuggestionClick={submit}
-                    onFork={handleFork}
-                  />
-                ))}
-              </div>
-            )}
-            <div className="h-4" />
+          <div className="relative flex-1 overflow-hidden">
+            <div ref={scrollRef} onScroll={handleScroll} className="h-full overflow-y-auto">
+              {messages.length === 0 ? (
+                <ChatEmptyState repo={repo} mode={mode} onSuggestionClick={submit} />
+              ) : (
+                <div className="mx-auto max-w-3xl px-4 py-8">
+                  {messages.map((msg) => (
+                    <MessageBubble
+                      key={msg.id}
+                      message={msg}
+                      repoUrl={repo?.url}
+                      onSuggestionClick={submit}
+                      onFork={handleFork}
+                    />
+                  ))}
+                </div>
+              )}
+              <div className="h-4" />
+            </div>
+
+            {/* Scroll-to-bottom button */}
+            <AnimatePresence>
+              {showScrollBtn && (
+                <motion.button
+                  initial={{ opacity: 0, y: 6 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: 6 }}
+                  transition={{ duration: 0.15, ease: "easeOut" }}
+                  onClick={scrollToBottom}
+                  className="border-border bg-card text-muted-foreground hover:text-foreground absolute bottom-4 left-1/2 z-10 flex -translate-x-1/2 cursor-pointer items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs shadow-lg transition-colors"
+                >
+                  <ChevronDown className="size-3.5" />
+                  Scroll to bottom
+                </motion.button>
+              )}
+            </AnimatePresence>
           </div>
 
           <motion.div
