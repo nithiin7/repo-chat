@@ -1,8 +1,6 @@
 <div align="center">
   <img src="frontend/public/logo.svg" alt="CodeLens Logo" width="180"/>
 
-  <h1>CodeLens</h1>
-
   <p><strong>Ask natural language questions about any GitHub or Bitbucket codebase — powered by local or cloud LLMs.</strong></p>
 
   <p>
@@ -25,42 +23,6 @@
 ---
 
 > Paste a GitHub or Bitbucket URL. CodeLens clones it, indexes every source file into a vector store, and opens a streaming chat so you can explore any codebase in plain English — no manual reading required.
-
----
-
-## 🖥️ Screenshots
-
-<div align="center">
-  <img src="docs/screenshots/chat.png" alt="Chat Interface — ask anything about the codebase" width="800"/>
-  <p><em>Ask natural language questions — answers stream token-by-token, grounded in the actual source code</em></p>
-</div>
-
-<br/>
-
-<div align="center">
-  <table>
-    <tr>
-      <td align="center">
-        <img src="docs/screenshots/dashboard.png" alt="Multi-repo dashboard" width="390"/>
-        <br/><em>Multi-repo dashboard</em>
-      </td>
-      <td align="center">
-        <img src="docs/screenshots/depmap.png" alt="Interactive dependency map" width="390"/>
-        <br/><em>Interactive dependency map</em>
-      </td>
-    </tr>
-    <tr>
-      <td align="center">
-        <img src="docs/screenshots/search.png" alt="Semantic code search" width="390"/>
-        <br/><em>Semantic code search</em>
-      </td>
-      <td align="center">
-        <img src="docs/screenshots/navigate.png" alt="Symbol navigator" width="390"/>
-        <br/><em>AST-based symbol navigator</em>
-      </td>
-    </tr>
-  </table>
-</div>
 
 ---
 
