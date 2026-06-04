@@ -2,6 +2,7 @@
 
 import { useState, useRef, useEffect, useMemo } from "react";
 import { Folder, FolderOpen, FileCode, X } from "lucide-react";
+import { AnimatePresence, motion } from "framer-motion";
 import { cn } from "@/lib/utils";
 import { getRepoFiles } from "@/lib/api/repos";
 
@@ -112,61 +113,69 @@ export default function ScopeSelector({
         )}
       </button>
 
-      {open && (
-        <div className="border-border bg-popover absolute bottom-full left-0 z-30 mb-2 w-80 overflow-hidden rounded-lg border shadow-lg">
-          <div className="border-border border-b px-3 py-2">
-            <input
-              autoFocus
-              value={filter}
-              onChange={(e) => setFilter(e.target.value)}
-              placeholder="Filter files and folders…"
-              className="text-foreground placeholder:text-muted-foreground w-full bg-transparent text-xs outline-none"
-            />
-          </div>
-
-          <div className="max-h-64 overflow-y-auto">
-            {files === null ? (
-              <p className="text-muted-foreground px-3 py-4 text-center text-xs">Loading…</p>
-            ) : items.length === 0 ? (
-              <p className="text-muted-foreground px-3 py-4 text-center text-xs">No matches</p>
-            ) : (
-              items.map((item) => (
-                <button
-                  key={item.kind + ":" + item.path}
-                  type="button"
-                  onClick={() => handleSelect(item.path)}
-                  className={cn(
-                    "hover:bg-muted flex w-full cursor-pointer items-center gap-2 px-3 py-1.5 text-left text-xs transition-colors",
-                    scopePath === item.path && "bg-indigo-500/10 text-indigo-400"
-                  )}
-                >
-                  {item.kind === "folder" ? (
-                    <Folder className="size-3 shrink-0 text-amber-400" />
-                  ) : (
-                    <FileCode className="text-muted-foreground size-3 shrink-0" />
-                  )}
-                  <span className="truncate font-mono">{item.path}</span>
-                </button>
-              ))
-            )}
-          </div>
-
-          {scopePath && (
-            <div className="border-border border-t px-3 py-2">
-              <button
-                type="button"
-                onClick={() => {
-                  onChange(null);
-                  setOpen(false);
-                }}
-                className="text-muted-foreground hover:text-foreground w-full cursor-pointer rounded-md py-1 text-xs transition-colors"
-              >
-                Clear scope
-              </button>
+      <AnimatePresence>
+        {open && (
+          <motion.div
+            initial={{ opacity: 0, y: 6, scale: 0.97 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: 6, scale: 0.97 }}
+            transition={{ duration: 0.15, ease: "easeOut" }}
+            className="border-border bg-popover absolute bottom-full left-0 z-30 mb-2 w-80 overflow-hidden rounded-lg border shadow-lg"
+          >
+            <div className="border-border border-b px-3 py-2">
+              <input
+                autoFocus
+                value={filter}
+                onChange={(e) => setFilter(e.target.value)}
+                placeholder="Filter files and folders…"
+                className="text-foreground placeholder:text-muted-foreground w-full bg-transparent text-xs outline-none"
+              />
             </div>
-          )}
-        </div>
-      )}
+
+            <div className="max-h-64 overflow-y-auto">
+              {files === null ? (
+                <p className="text-muted-foreground px-3 py-4 text-center text-xs">Loading…</p>
+              ) : items.length === 0 ? (
+                <p className="text-muted-foreground px-3 py-4 text-center text-xs">No matches</p>
+              ) : (
+                items.map((item) => (
+                  <button
+                    key={item.kind + ":" + item.path}
+                    type="button"
+                    onClick={() => handleSelect(item.path)}
+                    className={cn(
+                      "hover:bg-muted flex w-full cursor-pointer items-center gap-2 px-3 py-1.5 text-left text-xs transition-colors",
+                      scopePath === item.path && "bg-indigo-500/10 text-indigo-400"
+                    )}
+                  >
+                    {item.kind === "folder" ? (
+                      <Folder className="size-3 shrink-0 text-amber-400" />
+                    ) : (
+                      <FileCode className="text-muted-foreground size-3 shrink-0" />
+                    )}
+                    <span className="truncate font-mono">{item.path}</span>
+                  </button>
+                ))
+              )}
+            </div>
+
+            {scopePath && (
+              <div className="border-border border-t px-3 py-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    onChange(null);
+                    setOpen(false);
+                  }}
+                  className="text-muted-foreground hover:text-foreground w-full cursor-pointer rounded-md py-1 text-xs transition-colors"
+                >
+                  Clear scope
+                </button>
+              </div>
+            )}
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }

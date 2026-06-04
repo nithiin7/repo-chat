@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { ChevronDown } from "lucide-react";
+import { AnimatePresence, motion } from "framer-motion";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Dropdown } from "@/components/ui/dropdown";
 import { getSettings, getOllamaModels, updateSettings } from "@/lib/api/settings";
@@ -168,81 +169,89 @@ const ModelPicker = ({ mode, disabled }: ModelPickerProps) => {
         <ChevronDown className={cn("size-3 shrink-0 transition-transform", open && "rotate-180")} />
       </button>
 
-      {open && (
-        <div className="border-border bg-popover absolute bottom-full left-0 z-30 mb-2 w-72 overflow-hidden rounded-lg border shadow-lg">
-          {mode === "local" ? (
-            <div className="space-y-2 p-3">
-              <p className="text-muted-foreground text-[10px] font-semibold tracking-widest uppercase">
-                Ollama model
-              </p>
-              {(ollamaModels as string[]).length > 0 ? (
-                <div className="max-h-52 space-y-0.5 overflow-y-auto">
-                  {(ollamaModels as string[]).map((m) => (
+      <AnimatePresence>
+        {open && (
+          <motion.div
+            initial={{ opacity: 0, y: 6, scale: 0.97 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: 6, scale: 0.97 }}
+            transition={{ duration: 0.15, ease: "easeOut" }}
+            className="border-border bg-popover absolute bottom-full left-0 z-30 mb-2 w-72 overflow-hidden rounded-lg border shadow-lg"
+          >
+            {mode === "local" ? (
+              <div className="space-y-2 p-3">
+                <p className="text-muted-foreground text-[10px] font-semibold tracking-widest uppercase">
+                  Ollama model
+                </p>
+                {(ollamaModels as string[]).length > 0 ? (
+                  <div className="max-h-52 space-y-0.5 overflow-y-auto">
+                    {(ollamaModels as string[]).map((m) => (
+                      <button
+                        key={m}
+                        type="button"
+                        onClick={() => handleLocalModelSelect(m)}
+                        disabled={saveMutation.isPending}
+                        className={cn(
+                          "hover:bg-muted flex w-full cursor-pointer items-center rounded-md px-2.5 py-1.5 text-left font-mono text-xs transition-colors disabled:opacity-50",
+                          m === settings?.ollama_model
+                            ? "bg-emerald-500/10 text-emerald-400"
+                            : "text-foreground"
+                        )}
+                      >
+                        {m}
+                      </button>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-muted-foreground/70 text-xs">
+                    No Ollama models found. Start Ollama and reload.
+                  </p>
+                )}
+              </div>
+            ) : (
+              <>
+                <div className="border-border border-b p-3">
+                  <Dropdown
+                    options={CLOUD_PROVIDERS}
+                    value={activeProvider}
+                    onChange={(v) => setBrowsingProvider(v as CloudProvider)}
+                  />
+                </div>
+                <div className="max-h-52 overflow-y-auto py-1">
+                  {CLOUD_MODELS[activeProvider].map((m) => (
                     <button
-                      key={m}
+                      key={m.value}
                       type="button"
-                      onClick={() => handleLocalModelSelect(m)}
+                      onClick={() => handleCloudModelSelect(m.value)}
                       disabled={saveMutation.isPending}
                       className={cn(
-                        "hover:bg-muted flex w-full cursor-pointer items-center rounded-md px-2.5 py-1.5 text-left font-mono text-xs transition-colors disabled:opacity-50",
-                        m === settings?.ollama_model
-                          ? "bg-emerald-500/10 text-emerald-400"
-                          : "text-foreground"
+                        "hover:bg-muted flex w-full cursor-pointer flex-col px-3 py-2 text-left transition-colors disabled:opacity-50",
+                        m.value === savedModelForActiveProvider &&
+                          activeProvider === settings?.cloud_provider
+                          ? "bg-indigo-500/10"
+                          : ""
                       )}
                     >
-                      {m}
+                      <span
+                        className={cn(
+                          "font-mono text-xs",
+                          m.value === savedModelForActiveProvider &&
+                            activeProvider === settings?.cloud_provider
+                            ? "text-indigo-400"
+                            : "text-foreground"
+                        )}
+                      >
+                        {m.value}
+                      </span>
+                      <span className="text-muted-foreground text-[10px]">{m.label}</span>
                     </button>
                   ))}
                 </div>
-              ) : (
-                <p className="text-muted-foreground/70 text-xs">
-                  No Ollama models found. Start Ollama and reload.
-                </p>
-              )}
-            </div>
-          ) : (
-            <>
-              <div className="border-border border-b p-3">
-                <Dropdown
-                  options={CLOUD_PROVIDERS}
-                  value={activeProvider}
-                  onChange={(v) => setBrowsingProvider(v as CloudProvider)}
-                />
-              </div>
-              <div className="max-h-52 overflow-y-auto py-1">
-                {CLOUD_MODELS[activeProvider].map((m) => (
-                  <button
-                    key={m.value}
-                    type="button"
-                    onClick={() => handleCloudModelSelect(m.value)}
-                    disabled={saveMutation.isPending}
-                    className={cn(
-                      "hover:bg-muted flex w-full cursor-pointer flex-col px-3 py-2 text-left transition-colors disabled:opacity-50",
-                      m.value === savedModelForActiveProvider &&
-                        activeProvider === settings?.cloud_provider
-                        ? "bg-indigo-500/10"
-                        : ""
-                    )}
-                  >
-                    <span
-                      className={cn(
-                        "font-mono text-xs",
-                        m.value === savedModelForActiveProvider &&
-                          activeProvider === settings?.cloud_provider
-                          ? "text-indigo-400"
-                          : "text-foreground"
-                      )}
-                    >
-                      {m.value}
-                    </span>
-                    <span className="text-muted-foreground text-[10px]">{m.label}</span>
-                  </button>
-                ))}
-              </div>
-            </>
-          )}
-        </div>
-      )}
+              </>
+            )}
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 };
