@@ -4,7 +4,7 @@ FRONTEND_DIR := frontend
 .PHONY: backend frontend install lint format test docker
 
 backend:
-	cd $(BACKEND_DIR) && uvicorn main:app --reload --host 0.0.0.0 --port 8000
+	cd $(BACKEND_DIR) && PYTHONPATH=.. uvicorn main:app --reload --host 0.0.0.0 --port 8000
 
 frontend:
 	cd $(FRONTEND_DIR) && npm run dev
